@@ -1,9 +1,0 @@
-# Virtualenv
-backend/venv/
-venv/
-
-# Django
-*.pyc
-__pycache__/
-.env
-db.sqlite3
