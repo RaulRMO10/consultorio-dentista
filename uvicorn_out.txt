@@ -1,0 +1,176 @@
+INFO:     ::1:59518 - "GET /health HTTP/1.1" 200 OK
+INFO:     ::1:50275 - "GET /health HTTP/1.1" 200 OK
+INFO:     ::1:63495 - "GET /api/procedimentos HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:63496 - "GET /api/pacientes?ativo=True HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:63495 - "GET /api/procedimentos/ HTTP/1.1" 200 OK
+INFO:     ::1:63496 - "GET /api/pacientes/?ativo=True HTTP/1.1" 200 OK
+INFO:     ::1:64228 - "GET /health HTTP/1.1" 200 OK
+INFO:     ::1:58719 - "GET /api/dentistas HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:58719 - "GET /api/dentistas/ HTTP/1.1" 200 OK
+INFO:     ::1:50178 - "GET /api/agendamentos HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:50178 - "GET /api/agendamentos/ HTTP/1.1" 200 OK
+INFO:     ::1:50179 - "GET /api/dentistas?ativo=True HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:50179 - "GET /api/dentistas/?ativo=True HTTP/1.1" 200 OK
+INFO:     ::1:50180 - "GET /api/pacientes?ativo=True HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:50180 - "GET /api/pacientes/?ativo=True HTTP/1.1" 200 OK
+INFO:     ::1:50181 - "GET /api/procedimentos HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:50181 - "GET /api/procedimentos/ HTTP/1.1" 200 OK
+INFO:     ::1:50184 - "GET /api/financeiro/consultorio/resumo?mes=2&ano=2026 HTTP/1.1" 200 OK
+INFO:     ::1:50185 - "GET /api/financeiro/consultorio/?mes=2&ano=2026 HTTP/1.1" 200 OK
+INFO:     ::1:50186 - "GET /api/financeiro/consultorio/categorias HTTP/1.1" 200 OK
+INFO:     ::1:50187 - "GET /api/financeiro/pessoal/resumo?mes=2&ano=2026 HTTP/1.1" 200 OK
+INFO:     ::1:50188 - "GET /api/financeiro/pessoal/?mes=2&ano=2026 HTTP/1.1" 200 OK
+INFO:     ::1:50189 - "GET /api/financeiro/pessoal/categorias HTTP/1.1" 200 OK
+INFO:     ::1:50190 - "GET /api/financeiro/pessoal/categorias HTTP/1.1" 200 OK
+INFO:     ::1:50191 - "GET /api/financeiro/pessoal/metas?mes=2&ano=2026 HTTP/1.1" 200 OK
+INFO:     ::1:58927 - "GET /api/financeiro/pessoal/resumo?mes=2&ano=2026 HTTP/1.1" 200 OK
+INFO:     ::1:58928 - "GET /api/financeiro/pessoal/?mes=2&ano=2026 HTTP/1.1" 200 OK
+INFO:     ::1:58929 - "GET /api/financeiro/pessoal/categorias HTTP/1.1" 200 OK
+INFO:     ::1:58930 - "GET /api/financeiro/pessoal/categorias HTTP/1.1" 200 OK
+INFO:     ::1:58931 - "GET /api/financeiro/pessoal/metas?mes=2&ano=2026 HTTP/1.1" 200 OK
+INFO:     ::1:59302 - "GET /health HTTP/1.1" 200 OK
+INFO:     ::1:59303 - "GET /health HTTP/1.1" 200 OK
+INFO:     ::1:54515 - "GET /api/pacientes?ativo=True HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:54515 - "GET /api/pacientes/?ativo=True HTTP/1.1" 200 OK
+INFO:     ::1:54517 - "GET /api/dentistas?ativo=True HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:54517 - "GET /api/dentistas/?ativo=True HTTP/1.1" 200 OK
+INFO:     ::1:54518 - "GET /api/agendamentos HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:54518 - "GET /api/agendamentos/ HTTP/1.1" 200 OK
+INFO:     ::1:54519 - "GET /api/procedimentos?ativo=True HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:54519 - "GET /api/procedimentos/?ativo=True HTTP/1.1" 200 OK
+INFO:     ::1:54520 - "GET /api/pacientes?ativo=True HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:54520 - "GET /api/pacientes/?ativo=True HTTP/1.1" 200 OK
+INFO:     ::1:54521 - "GET /health HTTP/1.1" 200 OK
+INFO:     ::1:54522 - "GET /health HTTP/1.1" 200 OK
+INFO:     ::1:54523 - "GET /api/pacientes?ativo=True HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:54523 - "GET /api/pacientes/?ativo=True HTTP/1.1" 200 OK
+INFO:     ::1:54524 - "GET /api/dentistas?ativo=True HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:54524 - "GET /api/dentistas/?ativo=True HTTP/1.1" 200 OK
+INFO:     ::1:54525 - "GET /api/agendamentos HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:54525 - "GET /api/agendamentos/ HTTP/1.1" 200 OK
+INFO:     ::1:54527 - "GET /api/procedimentos?ativo=True HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:54527 - "GET /api/procedimentos/?ativo=True HTTP/1.1" 200 OK
+INFO:     ::1:54529 - "GET /api/pacientes?ativo=True HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:54529 - "GET /api/pacientes/?ativo=True HTTP/1.1" 200 OK
+INFO:     ::1:59507 - "GET /api/dentistas HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:59507 - "GET /api/dentistas/ HTTP/1.1" 200 OK
+INFO:     ::1:58577 - "GET /api/agendamentos HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:58577 - "GET /api/agendamentos/ HTTP/1.1" 200 OK
+INFO:     ::1:58578 - "GET /api/dentistas?ativo=True HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:58578 - "GET /api/dentistas/?ativo=True HTTP/1.1" 200 OK
+INFO:     ::1:58579 - "GET /api/pacientes?ativo=True HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:58579 - "GET /api/pacientes/?ativo=True HTTP/1.1" 200 OK
+INFO:     ::1:58580 - "GET /api/procedimentos HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:58580 - "GET /api/procedimentos/ HTTP/1.1" 200 OK
+INFO:     ::1:58581 - "GET /api/financeiro/consultorio/resumo?mes=2&ano=2026 HTTP/1.1" 200 OK
+INFO:     ::1:58582 - "GET /api/financeiro/consultorio/?mes=2&ano=2026 HTTP/1.1" 200 OK
+INFO:     ::1:58583 - "GET /api/financeiro/pessoal/resumo?mes=2&ano=2026 HTTP/1.1" 200 OK
+INFO:     ::1:58584 - "GET /api/financeiro/pessoal/?mes=2&ano=2026 HTTP/1.1" 200 OK
+INFO:     ::1:58585 - "GET /api/financeiro/pessoal/categorias HTTP/1.1" 200 OK
+INFO:     ::1:58586 - "GET /api/financeiro/pessoal/categorias HTTP/1.1" 200 OK
+INFO:     ::1:58587 - "GET /api/financeiro/pessoal/metas?mes=2&ano=2026 HTTP/1.1" 200 OK
+INFO:     ::1:58588 - "GET /health HTTP/1.1" 200 OK
+INFO:     ::1:58589 - "GET /health HTTP/1.1" 200 OK
+INFO:     ::1:58590 - "GET /api/pacientes?ativo=True HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:58590 - "GET /api/pacientes/?ativo=True HTTP/1.1" 200 OK
+INFO:     ::1:58591 - "GET /api/dentistas?ativo=True HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:58591 - "GET /api/dentistas/?ativo=True HTTP/1.1" 200 OK
+INFO:     ::1:58592 - "GET /api/agendamentos HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:58592 - "GET /api/agendamentos/ HTTP/1.1" 200 OK
+INFO:     ::1:58593 - "GET /api/procedimentos?ativo=True HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:58593 - "GET /api/procedimentos/?ativo=True HTTP/1.1" 200 OK
+INFO:     ::1:58594 - "GET /api/financeiro/consultorio/resumo?mes=2&ano=2026 HTTP/1.1" 200 OK
+INFO:     ::1:58595 - "GET /api/financeiro/consultorio/?mes=2&ano=2026 HTTP/1.1" 200 OK
+INFO:     ::1:58596 - "GET /api/financeiro/consultorio/categorias HTTP/1.1" 200 OK
+INFO:     ::1:58597 - "GET /health HTTP/1.1" 200 OK
+INFO:     ::1:58598 - "GET /health HTTP/1.1" 200 OK
+INFO:     ::1:60930 - "GET /api/pacientes?ativo=True HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:60930 - "GET /api/pacientes/?ativo=True HTTP/1.1" 200 OK
+INFO:     ::1:60931 - "GET /api/dentistas?ativo=True HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:60931 - "GET /api/dentistas/?ativo=True HTTP/1.1" 200 OK
+INFO:     ::1:60932 - "GET /api/agendamentos HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:60932 - "GET /api/agendamentos/ HTTP/1.1" 200 OK
+INFO:     ::1:60933 - "GET /api/procedimentos?ativo=True HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:60933 - "GET /api/procedimentos/?ativo=True HTTP/1.1" 200 OK
+INFO:     ::1:50436 - "GET /api/agendamentos HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:50436 - "GET /api/agendamentos/ HTTP/1.1" 200 OK
+INFO:     ::1:49438 - "GET /api/dentistas?ativo=True HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:49438 - "GET /api/dentistas/?ativo=True HTTP/1.1" 200 OK
+INFO:     ::1:49439 - "GET /api/pacientes?ativo=True HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:49439 - "GET /api/pacientes/?ativo=True HTTP/1.1" 200 OK
+INFO:     ::1:54144 - "GET /api/agendamentos HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:54144 - "GET /api/agendamentos/ HTTP/1.1" 200 OK
+INFO:     ::1:54145 - "GET /api/dentistas?ativo=True HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:54145 - "GET /api/dentistas/?ativo=True HTTP/1.1" 200 OK
+INFO:     ::1:54146 - "GET /api/pacientes?ativo=True HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:54146 - "GET /api/pacientes/?ativo=True HTTP/1.1" 200 OK
+INFO:     ::1:57611 - "GET /health HTTP/1.1" 200 OK
+INFO:     ::1:54682 - "GET /health HTTP/1.1" 200 OK
+INFO:     ::1:54683 - "GET /api/pacientes?ativo=True HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:54683 - "GET /api/pacientes/?ativo=True HTTP/1.1" 200 OK
+INFO:     ::1:54685 - "GET /api/dentistas?ativo=True HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:54685 - "GET /api/dentistas/?ativo=True HTTP/1.1" 200 OK
+INFO:     ::1:54686 - "GET /api/agendamentos HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:54686 - "GET /api/agendamentos/ HTTP/1.1" 200 OK
+INFO:     ::1:54687 - "GET /api/financeiro/consultorio/resumo?mes=2&ano=2026 HTTP/1.1" 200 OK
+INFO:     ::1:54688 - "GET /api/procedimentos?ativo=True HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:54689 - "GET /api/financeiro/consultorio/?mes=2&ano=2026 HTTP/1.1" 200 OK
+INFO:     ::1:54688 - "GET /api/procedimentos/?ativo=True HTTP/1.1" 200 OK
+INFO:     ::1:54690 - "GET /api/financeiro/consultorio/categorias HTTP/1.1" 200 OK
+INFO:     ::1:54692 - "GET /api/financeiro/pessoal/resumo?mes=2&ano=2026 HTTP/1.1" 200 OK
+INFO:     ::1:54693 - "GET /api/financeiro/pessoal/?mes=2&ano=2026 HTTP/1.1" 200 OK
+INFO:     ::1:54694 - "GET /api/financeiro/pessoal/categorias HTTP/1.1" 200 OK
+INFO:     ::1:54695 - "GET /api/financeiro/pessoal/categorias HTTP/1.1" 200 OK
+INFO:     ::1:54697 - "GET /api/financeiro/consultorio/resumo?mes=2&ano=2026 HTTP/1.1" 200 OK
+INFO:     ::1:54696 - "GET /api/financeiro/pessoal/metas?mes=2&ano=2026 HTTP/1.1" 200 OK
+INFO:     ::1:54698 - "GET /api/financeiro/consultorio/?mes=2&ano=2026 HTTP/1.1" 200 OK
+INFO:     ::1:54699 - "GET /api/financeiro/pessoal/resumo?mes=2&ano=2026 HTTP/1.1" 200 OK
+INFO:     ::1:54701 - "GET /api/financeiro/pessoal/?mes=2&ano=2026 HTTP/1.1" 200 OK
+INFO:     ::1:54702 - "GET /api/financeiro/pessoal/categorias HTTP/1.1" 200 OK
+INFO:     ::1:54703 - "GET /api/financeiro/pessoal/categorias HTTP/1.1" 200 OK
+INFO:     ::1:54704 - "GET /api/financeiro/pessoal/metas?mes=2&ano=2026 HTTP/1.1" 200 OK
+INFO:     ::1:50670 - "GET /api/financeiro/consultorio/resumo?mes=2&ano=2026 HTTP/1.1" 200 OK
+INFO:     ::1:58529 - "GET /api/financeiro/consultorio/?mes=2&ano=2026 HTTP/1.1" 200 OK
+INFO:     ::1:58530 - "GET /api/financeiro/consultorio/categorias HTTP/1.1" 200 OK
+INFO:     ::1:58531 - "GET /api/procedimentos HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:58531 - "GET /api/procedimentos/ HTTP/1.1" 200 OK
+INFO:     ::1:60567 - "GET /api/agendamentos HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:60567 - "GET /api/agendamentos/ HTTP/1.1" 200 OK
+INFO:     ::1:57444 - "GET /api/dentistas?ativo=True HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:57444 - "GET /api/dentistas/?ativo=True HTTP/1.1" 200 OK
+INFO:     ::1:57445 - "GET /api/pacientes?ativo=True HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:57445 - "GET /api/pacientes/?ativo=True HTTP/1.1" 200 OK
+INFO:     ::1:57446 - "GET /api/dentistas HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:57446 - "GET /api/dentistas/ HTTP/1.1" 200 OK
+INFO:     ::1:57447 - "GET /api/pacientes?ativo=True HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:57447 - "GET /api/pacientes/?ativo=True HTTP/1.1" 200 OK
+INFO:     ::1:57448 - "GET /health HTTP/1.1" 200 OK
+INFO:     ::1:57449 - "GET /health HTTP/1.1" 200 OK
+INFO:     ::1:57450 - "GET /api/pacientes?ativo=True HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:57450 - "GET /api/pacientes/?ativo=True HTTP/1.1" 200 OK
+INFO:     ::1:57451 - "GET /api/dentistas?ativo=True HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:57452 - "GET /api/pacientes?ativo=True HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:57451 - "GET /api/dentistas/?ativo=True HTTP/1.1" 200 OK
+INFO:     ::1:57452 - "GET /api/pacientes/?ativo=True HTTP/1.1" 200 OK
+INFO:     ::1:57453 - "GET /api/agendamentos HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:57454 - "GET /api/dentistas HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:57453 - "GET /api/agendamentos/ HTTP/1.1" 200 OK
+INFO:     ::1:57454 - "GET /api/dentistas/ HTTP/1.1" 200 OK
+INFO:     ::1:57455 - "GET /api/procedimentos?ativo=True HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:57456 - "GET /api/agendamentos HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:57455 - "GET /api/procedimentos/?ativo=True HTTP/1.1" 200 OK
+INFO:     ::1:57456 - "GET /api/agendamentos/ HTTP/1.1" 200 OK
+INFO:     ::1:57457 - "GET /api/dentistas?ativo=True HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:57457 - "GET /api/dentistas/?ativo=True HTTP/1.1" 200 OK
+INFO:     ::1:57458 - "GET /api/pacientes?ativo=True HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:57459 - "GET /api/procedimentos HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:57458 - "GET /api/pacientes/?ativo=True HTTP/1.1" 200 OK
+INFO:     ::1:57459 - "GET /api/procedimentos/ HTTP/1.1" 200 OK
+INFO:     ::1:57460 - "GET /api/pacientes?ativo=True HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:57460 - "GET /api/pacientes/?ativo=True HTTP/1.1" 200 OK
+INFO:     ::1:53455 - "GET /api/agendamentos HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:53455 - "GET /api/agendamentos/ HTTP/1.1" 200 OK
+INFO:     ::1:53456 - "GET /api/dentistas?ativo=True HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:53456 - "GET /api/dentistas/?ativo=True HTTP/1.1" 200 OK
+INFO:     ::1:53457 - "GET /api/pacientes?ativo=True HTTP/1.1" 307 Temporary Redirect
+INFO:     ::1:53457 - "GET /api/pacientes/?ativo=True HTTP/1.1" 200 OK

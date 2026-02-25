@@ -1,0 +1,17 @@
+# Backend
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+sqlalchemy>=2.0.36
+psycopg[binary]>=3.1.0
+python-dotenv>=1.0.1
+pydantic>=2.10.0
+pydantic-settings>=2.7.0
+alembic>=1.14.0
+
+# Frontend
+streamlit>=1.41.0
+# pandas e plotly removidos temporariamente - Python 3.14 muito novo
+
+# Utils
+python-dateutil==2.8.2
+requests==2.31.0
