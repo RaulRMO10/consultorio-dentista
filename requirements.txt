@@ -8,6 +8,10 @@ pydantic>=2.10.0
 pydantic-settings>=2.7.0
 alembic>=1.14.0
 
+# Autenticação
+python-jose[cryptography]>=3.3.0
+bcrypt>=4.0.0
+
 # Frontend
 streamlit>=1.41.0
 # pandas e plotly removidos temporariamente - Python 3.14 muito novo
