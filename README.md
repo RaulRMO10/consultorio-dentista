@@ -1,285 +1,214 @@
-# 🦷 Sistema de Consultório Dentista
+﻿# ðŸ¦· OdontoSystem â€” GestÃ£o de ConsultÃ³rio OdontolÃ³gico
 
-Sistema completo de gestão para consultórios odontológicos desenvolvido com FastAPI, Streamlit e PostgreSQL (Supabase).
-
-## 🚀 Tecnologias
-
-- **Backend:** FastAPI (Python 3.11+)
-- **Frontend:** Streamlit
-- **Banco de Dados:** PostgreSQL (Supabase)
-- **ORM:** SQLAlchemy 2.0
-- **Validação:** Pydantic V2
-
-## 📋 Funcionalidades
-
-### ✅ Implementadas
-- ✔️ Cadastro de Pacientes
-- ✔️ Cadastro de Dentistas
-- ✔️ Cadastro de Procedimentos
-- ✔️ Sistema de Agendamentos
-- ✔️ API REST completa
-- ✔️ Interface web intuitiva
-
-### 🚧 Em Desenvolvimento
-- ⏳ Prontuário Eletrônico
-- ⏳ Controle Financeiro
-- ⏳ Relatórios e Dashboards
-- ⏳ Sistema de Notificações
-- ⏳ Upload de Documentos/Raio-X
-
-## 📁 Estrutura do Projeto
-
-```
-Consultorio Dentista/
-├── backend/
-│   ├── api/              # Rotas da API
-│   │   ├── main.py       # Aplicação FastAPI
-│   │   └── routes/       # Endpoints por módulo
-│   ├── models/           # Modelos SQLAlchemy
-│   ├── services/         # Serviços (Database, etc)
-│   └── config/           # Configurações
-├── frontend/
-│   ├── app.py            # Dashboard principal
-│   └── pages/            # Páginas do Streamlit
-├── database/
-│   └── schema.sql        # Schema do banco
-├── .env.example          # Exemplo de variáveis de ambiente
-├── requirements.txt      # Dependências Python
-├── setup_database.py     # Script de setup do DB
-├── start_backend.py      # Iniciar API
-├── start_frontend.py     # Iniciar interface
-└── start.bat             # Iniciar tudo (Windows)
-```
-
-## 🔧 Instalação e Configuração
-
-### 1. Pré-requisitos
-- Python 3.11 ou superior
-- PostgreSQL (ou conta no Supabase)
-- Git (opcional)
-
-### 2. Clonar o Projeto
-
-```bash
-# Se estiver usando Git
-git clone <url-do-repositorio>
-cd "Consultorio Dentista"
-
-# Ou simplesmente navegue até a pasta do projeto
-```
-
-### 3. Criar Ambiente Virtual
-
-```bash
-# Windows
-python -m venv .venv
-.venv\Scripts\activate
-
-# Linux/Mac
-python3 -m venv .venv
-source .venv/bin/activate
-```
-
-### 4. Instalar Dependências
-
-```bash
-pip install -r requirements.txt
-```
-
-### 5. Configurar Variáveis de Ambiente
-
-Copie o arquivo `.env.example` para `.env` e configure:
-
-```bash
-copy .env.example .env   # Windows
-# ou
-cp .env.example .env     # Linux/Mac
-```
-
-Edite o arquivo `.env` com suas credenciais do banco:
-
-```env
-DB_HOST=seu_host.supabase.co
-DB_PORT=5432
-DB_NAME=postgres
-DB_USER=postgres
-DB_PASSWORD=sua_senha
-```
-
-### 6. Configurar Banco de Dados
-
-Execute o script de setup para criar as tabelas:
-
-```bash
-python setup_database.py
-```
-
-Isso irá criar todas as tabelas necessárias e inserir dados iniciais.
-
-## 🎮 Como Usar
-
-### Opção 1: Iniciar Tudo de Uma Vez (Windows)
-
-```bash
-start.bat
-```
-
-Isso iniciará automaticamente:
-- Backend API na porta 8000
-- Frontend Streamlit na porta 8501
-
-### Opção 2: Iniciar Manualmente
-
-#### Iniciar Backend (Terminal 1)
-
-```bash
-python start_backend.py
-```
-
-API disponível em:
-- **URL:** http://localhost:8000
-- **Documentação:** http://localhost:8000/docs (Swagger UI)
-- **Health Check:** http://localhost:8000/health
-
-#### Iniciar Frontend (Terminal 2)
-
-```bash
-python start_frontend.py
-```
-
-Interface disponível em:
-- **URL:** http://localhost:8501
-
-## 📚 Documentação da API
-
-Acesse a documentação interativa (Swagger) em: http://localhost:8000/docs
-
-### Endpoints Principais
-
-#### Pacientes
-- `GET /api/pacientes` - Listar pacientes
-- `GET /api/pacientes/{id}` - Obter paciente específico
-- `POST /api/pacientes` - Criar paciente
-- `PUT /api/pacientes/{id}` - Atualizar paciente
-- `DELETE /api/pacientes/{id}` - Desativar paciente
-
-#### Dentistas
-- `GET /api/dentistas` - Listar dentistas
-- `POST /api/dentistas` - Criar dentista
-- (... demais endpoints similares)
-
-#### Agendamentos
-- `GET /api/agendamentos` - Listar agendamentos
-- `POST /api/agendamentos` - Criar agendamento
-- (... demais endpoints similares)
-
-#### Procedimentos
-- `GET /api/procedimentos` - Listar procedimentos
-- `POST /api/procedimentos` - Criar procedimento
-- (... demais endpoints similares)
-
-## 🗄️ Estrutura do Banco de Dados
-
-### Tabelas Principais
-
-1. **dentistas** - Cadastro de profissionais
-2. **pacientes** - Cadastro de pacientes
-3. **procedimentos** - Catálogo de procedimentos
-4. **agendamentos** - Agenda de consultas
-5. **atendimentos** - Registro de atendimentos
-6. **atendimentos_procedimentos** - Procedimentos realizados
-7. **financeiro** - Controle financeiro
-8. **historico_odontologico** - Histórico dos pacientes
-
-### Relacionamentos
-
-- Um **paciente** pode ter vários **agendamentos**
-- Um **dentista** pode ter vários **agendamentos**
-- Um **agendamento** pode gerar um **atendimento**
-- Um **atendimento** pode ter vários **procedimentos**
-- Um **atendimento** tem um registro **financeiro**
-
-## 🔐 Segurança
-
-- ✅ Variáveis de ambiente para credenciais
-- ✅ Validação com Pydantic
-- ✅ Soft delete (não remove dados, apenas desativa)
-- ✅ CORS configurado
-- ⏳ Autenticação JWT (em desenvolvimento)
-
-## 🚀 Deploy
-
-### Preparar para Deploy
-
-1. **Criar arquivo .env de produção**
-2. **Configurar variável DEBUG=False**
-3. **Usar servidor WSGI (ex: Gunicorn)**
-
-### Opções de Hospedagem Gratuita
-
-#### Backend (FastAPI)
-- Railway.app
-- Render.com
-- Fly.io
-
-#### Frontend (Streamlit)
-- Streamlit Cloud
-- Railway.app
-
-#### Banco de Dados
-- Supabase (já configurado)
-- Neon.tech
-- ElephantSQL
-
-## 🛠️ Desenvolvimento
-
-### Adicionar Nova Funcionalidade
-
-1. Criar modelo em `backend/models/models.py`
-2. Criar rota em `backend/api/routes/`
-3. Criar página em `frontend/pages/`
-4. Documentar no README
-
-### Executar com Live Reload
-
-O FastAPI já está configurado com reload automático:
-
-```bash
-python start_backend.py
-```
-
-O Streamlit também recarrega automaticamente ao salvar arquivos.
-
-## 📝 Logs
-
-- Logs da aplicação: console
-- Logs de erros: verificar terminal
-
-## 🤝 Contribuindo
-
-1. Fork o projeto
-2. Crie uma branch (`git checkout -b feature/nova-feature`)
-3. Commit suas mudanças (`git commit -m 'Adiciona nova feature'`)
-4. Push para a branch (`git push origin feature/nova-feature`)
-5. Abra um Pull Request
-
-## 📄 Licença
-
-Este projeto está sob a licença MIT.
-
-## 👥 Autor
-
-Desenvolvido para consultório odontológico.
-
-## 📞 Suporte
-
-Para dúvidas ou problemas:
-1. Verifique a documentação
-2. Consulte os logs
-3. Abra uma issue no GitHub
+Sistema completo de gestÃ£o para consultÃ³rios odontolÃ³gicos, construÃ­do com **FastAPI**, **Streamlit** e **Supabase (PostgreSQL)**.
 
 ---
 
-**Versão:** 1.0.0  
-**Data:** Fevereiro 2026  
-**Status:** ✅ Em Produção Local
+## ðŸš€ Tecnologias
+
+| Camada | Tecnologia |
+|---|---|
+| Backend | FastAPI + Uvicorn (Python 3.11+) |
+| Frontend | Streamlit |
+| Banco de Dados | PostgreSQL via Supabase (PostgREST) |
+| AutenticaÃ§Ã£o | JWT (`python-jose`) + bcrypt |
+| ValidaÃ§Ã£o | Pydantic V2 |
+
+---
+
+## âœ… Funcionalidades
+
+- **Login seguro** com JWT â€” perfis: Admin, Dentista, Recepcionista, Financeiro  
+- **Pacientes** â€” cadastro completo, ficha, histÃ³rico de agendamentos  
+- **Dentistas** â€” cadastro, especialidades, estatÃ­sticas de atendimento  
+- **Agendamentos** â€” agenda visual, fluxo de status (agendado â†’ concluÃ­do)  
+- **Procedimentos** â€” catÃ¡logo com valores e duraÃ§Ã£o  
+- **Financeiro ConsultÃ³rio** â€” lanÃ§amentos, visÃ£o mensal e anual  
+- **Financeiro Pessoal** â€” controle separado por usuÃ¡rio  
+- **UsuÃ¡rios** â€” gerenciamento de acessos (somente Admin)  
+
+---
+
+## ðŸ“ Estrutura do Projeto
+
+```
+odontosystem/
+â”œâ”€â”€ backend/
+â”‚   â”œâ”€â”€ api/
+â”‚   â”‚   â”œâ”€â”€ main.py              # App FastAPI + routers
+â”‚   â”‚   â””â”€â”€ routes/
+â”‚   â”‚       â”œâ”€â”€ auth.py          # Login / JWT / usuÃ¡rios
+â”‚   â”‚       â”œâ”€â”€ pacientes.py
+â”‚   â”‚       â”œâ”€â”€ dentistas.py
+â”‚   â”‚       â”œâ”€â”€ agendamentos.py
+â”‚   â”‚       â”œâ”€â”€ procedimentos.py
+â”‚   â”‚       â”œâ”€â”€ financeiro_consultorio.py
+â”‚   â”‚       â””â”€â”€ financeiro_pessoal.py
+â”‚   â””â”€â”€ config/
+â”‚       â”œâ”€â”€ settings.py          # Pydantic Settings (lÃª .env)
+â”‚       â””â”€â”€ supabase_client.py   # Cliente PostgREST
+â”œâ”€â”€ frontend/
+â”‚   â”œâ”€â”€ app.py                   # Dashboard principal
+â”‚   â”œâ”€â”€ components/
+â”‚   â”‚   â”œâ”€â”€ auth.py              # require_login(), tela de login
+â”‚   â”‚   â””â”€â”€ sidebar.py           # Sidebar compartilhada
+â”‚   â””â”€â”€ pages/
+â”‚       â”œâ”€â”€ 1_Pacientes.py
+â”‚       â”œâ”€â”€ 2_Dentistas.py
+â”‚       â”œâ”€â”€ 3_Agendamentos.py
+â”‚       â”œâ”€â”€ 4_Procedimentos.py
+â”‚       â”œâ”€â”€ 5_Fin_Consultorio.py
+â”‚       â”œâ”€â”€ 6_Fin_Pessoal.py
+â”‚       â””â”€â”€ 7_Usuarios.py
+â”œâ”€â”€ database/
+â”‚   â”œâ”€â”€ schema.sql               # Tabelas principais
+â”‚   â”œâ”€â”€ schema_financeiro.sql    # Tabelas financeiras
+â”‚   â””â”€â”€ schema_auth.sql          # Tabela de usuÃ¡rios + admin inicial
+â”œâ”€â”€ .env.example                 # Modelo de variÃ¡veis de ambiente
+â”œâ”€â”€ requirements.txt
+â”œâ”€â”€ criar_admin.py               # CLI para criar usuÃ¡rio admin
+â”œâ”€â”€ start_backend.py
+â”œâ”€â”€ start_frontend.py
+â””â”€â”€ start.bat                    # Inicia tudo (Windows)
+```
+
+---
+
+## ðŸ”§ InstalaÃ§Ã£o
+
+### 1. PrÃ©-requisitos
+- Python **3.11** ou superior
+- Projeto no [Supabase](https://supabase.com) (gratuito)
+
+### 2. Clonar e criar ambiente virtual
+
+```bash
+git clone <url-do-repositorio>
+cd odontosystem
+
+python -m venv .venv
+.venv\Scripts\activate          # Windows
+# source .venv/bin/activate     # Linux/Mac
+
+pip install -r requirements.txt
+```
+
+### 3. Configurar variÃ¡veis de ambiente
+
+```bash
+copy .env.example .env          # Windows
+# cp .env.example .env          # Linux/Mac
+```
+
+Edite `.env` com suas credenciais do Supabase:
+
+```env
+SUPABASE_URL=https://<seu_project_id>.supabase.co
+SUPABASE_KEY=<sua_anon_key>
+DB_PASSWORD=<sua_db_password>
+JWT_SECRET_KEY=<chave_secreta_forte>   # python -c "import secrets; print(secrets.token_hex(32))"
+```
+
+> ðŸ”‘ **Onde encontrar as chaves do Supabase:**  
+> `Settings â†’ API` â†’ Project URL + anon/public key  
+> `Settings â†’ Database` â†’ senha do banco
+
+### 4. Criar as tabelas no Supabase
+
+Acesse o **SQL Editor** do seu projeto no Supabase e execute os arquivos na ordem:
+
+1. `database/schema.sql`
+2. `database/schema_financeiro.sql`
+3. `database/schema_auth.sql` â† cria tabela `usuarios` + usuÃ¡rio admin inicial
+
+> O arquivo `schema_auth.sql` jÃ¡ insere o **admin padrÃ£o** com:  
+> **E-mail:** `admin@odontosystem.com` | **Senha:** `Admin@2025`  
+> Altere a senha apÃ³s o primeiro acesso.
+
+---
+
+## â–¶ï¸ Rodando o sistema
+
+### Windows â€” tudo de uma vez
+
+```bat
+start.bat
+```
+
+### Ou manualmente (dois terminais)
+
+```bash
+# Terminal 1 â€” Backend
+python start_backend.py
+# API em http://localhost:8000
+# Docs em http://localhost:8000/docs
+
+# Terminal 2 â€” Frontend
+python start_frontend.py
+# Interface em http://localhost:8501
+```
+
+---
+
+## ðŸ” AutenticaÃ§Ã£o
+
+- Todas as pÃ¡ginas exigem login
+- Perfis disponÃ­veis: `admin`, `dentista`, `recepcionista`, `financeiro`
+- Tokens JWT com expiraÃ§Ã£o de 8 horas
+- Gerenciar usuÃ¡rios pela pÃ¡gina **ðŸ” UsuÃ¡rios** (somente Admin)
+
+Para criar usuÃ¡rios extras via CLI:
+
+```bash
+python criar_admin.py --email "dentista@clinica.com" --nome "Dr. Silva" --role dentista
+```
+
+---
+
+## ðŸ“š API
+
+DocumentaÃ§Ã£o Swagger interativa em: `http://localhost:8000/docs`
+
+| Prefixo | MÃ³dulo |
+|---|---|
+| `POST /auth/login` | AutenticaÃ§Ã£o |
+| `GET /auth/me` | UsuÃ¡rio atual |
+| `/api/pacientes` | Pacientes |
+| `/api/dentistas` | Dentistas |
+| `/api/agendamentos` | Agendamentos |
+| `/api/procedimentos` | Procedimentos |
+| `/api/financeiro/consultorio` | Financeiro consultÃ³rio |
+| `/api/financeiro/pessoal` | Financeiro pessoal |
+
+---
+
+## ðŸ”’ SeguranÃ§a
+
+- Credenciais em variÃ¡veis de ambiente (`.env` estÃ¡ no `.gitignore`)
+- Senhas armazenadas com **bcrypt** (custo 12)
+- AutenticaÃ§Ã£o **JWT** com expiraÃ§Ã£o configurÃ¡vel
+- Sem valores sensÃ­veis hardcoded no cÃ³digo
+
+---
+
+## ðŸš€ Deploy
+
+Para produÃ§Ã£o, configure no `.env`:
+
+```env
+DEBUG=False
+JWT_SECRET_KEY=<chave_muito_forte_aqui>
+```
+
+SugestÃµes de hospedagem gratuita:
+
+| ServiÃ§o | Componente |
+|---|---|
+| [Railway](https://railway.app) | Backend + Frontend |
+| [Render](https://render.com) | Backend |
+| [Streamlit Cloud](https://streamlit.io/cloud) | Frontend |
+| [Supabase](https://supabase.com) | Banco de dados |
+
+---
+
+**VersÃ£o:** 1.0.0 Â· **Stack:** FastAPI + Streamlit + Supabase

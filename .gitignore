@@ -1,13 +1,19 @@
-# Python
+# ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
+
+# Virtual environments
 env/
 venv/
 .venv/
 ENV/
+env.bak/
+venv.bak/
+
+# Distribution / packaging
 build/
 develop-eggs/
 dist/
@@ -20,35 +26,67 @@ parts/
 sdist/
 var/
 wheels/
+share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
-# Environment variables
+# ── Variáveis de ambiente / Segredos ─────────────────────────────────────────
 .env
 .env.local
+.env.*.local
+.env.production
+.env.staging
+# NÃO ignorar .env.example — esse é seguro para commitar
 
-# IDE
+# ── IDE ───────────────────────────────────────────────────────────────────────
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+*.sublime-project
+*.sublime-workspace
 
-# OS
+# ── OS ────────────────────────────────────────────────────────────────────────
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 
-# Logs
+# ── Logs e arquivos de saída ─────────────────────────────────────────────────
 *.log
 logs/
+streamlit_out.txt
+streamlit_err.txt
+uvicorn_out.txt
+uvicorn_err.txt
 
-# Database
+# ── Banco de dados local ──────────────────────────────────────────────────────
 *.db
 *.sqlite
 *.sqlite3
 
-# Testing
+# ── Testes ────────────────────────────────────────────────────────────────────
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+
+# ── Streamlit ─────────────────────────────────────────────────────────────────
+.streamlit/secrets.toml
+
+# ── Temporários e scripts de apoio ───────────────────────────────────────────
+_write_*.py
+_patch_*.py
+
+# ── Node (caso use tools JS) ──────────────────────────────────────────────────
+node_modules/

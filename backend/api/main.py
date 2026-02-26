@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.config import get_settings
 from backend.api.routes import pacientes, dentistas, agendamentos, procedimentos, financeiro_consultorio, financeiro_pessoal
+from backend.api.routes import auth
 
 settings = get_settings()
 
@@ -26,12 +27,13 @@ app.add_middleware(
 )
 
 # Incluir rotas
-app.include_router(pacientes.router, prefix="/api/pacientes", tags=["Pacientes"])
-app.include_router(dentistas.router, prefix="/api/dentistas", tags=["Dentistas"])
-app.include_router(agendamentos.router, prefix="/api/agendamentos", tags=["Agendamentos"])
-app.include_router(procedimentos.router, prefix="/api/procedimentos", tags=["Procedimentos"])
-app.include_router(financeiro_consultorio.router, prefix="/api/financeiro/consultorio", tags=["Financeiro Consultório"])
-app.include_router(financeiro_pessoal.router, prefix="/api/financeiro/pessoal", tags=["Financeiro Pessoal"])
+app.include_router(auth.router,                  prefix="/auth",                            tags=["Autenticação"])
+app.include_router(pacientes.router,             prefix="/api/pacientes",                   tags=["Pacientes"])
+app.include_router(dentistas.router,             prefix="/api/dentistas",                   tags=["Dentistas"])
+app.include_router(agendamentos.router,          prefix="/api/agendamentos",                tags=["Agendamentos"])
+app.include_router(procedimentos.router,         prefix="/api/procedimentos",               tags=["Procedimentos"])
+app.include_router(financeiro_consultorio.router,prefix="/api/financeiro/consultorio",      tags=["Financeiro Consultório"])
+app.include_router(financeiro_pessoal.router,    prefix="/api/financeiro/pessoal",          tags=["Financeiro Pessoal"])
 
 
 @app.get("/")
