@@ -1,23 +1,25 @@
 """
-Script para iniciar o frontend Streamlit
+Script para iniciar o frontend React (antigo Streamlit)
 """
 import subprocess
-import sys
 import os
 
 if __name__ == "__main__":
-    print("🌐 Iniciando Frontend Streamlit...")
-    print("📍 Frontend URL: http://localhost:8501")
+    print("🌐 Iniciando Frontend React (Vite)...")
+    print("📍 Frontend URL: http://localhost:5173")
     print("\nPressione Ctrl+C para parar\n")
     
-    frontend_path = os.path.join(os.path.dirname(__file__), "frontend", "app.py")
+    frontend_path = os.path.join(os.path.dirname(__file__), "frontend-react")
     
-    subprocess.run([
-        sys.executable,
-        "-m",
-        "streamlit",
-        "run",
-        frontend_path,
-        "--server.port=8501",
-        "--server.address=localhost"
-    ])
+    # Try to use npm.cmd on Windows if available, fallback to npm
+    npm_cmd = "npm.cmd" if os.name == "nt" else "npm"
+    
+    try:
+        subprocess.run(
+            [npm_cmd, "run", "dev"], 
+            cwd=frontend_path
+        )
+    except KeyboardInterrupt:
+        print("\nServidor encerrado.")
+    except Exception as e:
+        print(f"\nErro ao iniciar frontend: {e}")

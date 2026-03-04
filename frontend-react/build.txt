@@ -1,0 +1,63 @@
+
+> frontend-react@0.0.0 build
+> vite build
+
+[36mvite v7.3.1 [32mbuilding client environment for production...[36m[39m
+transforming...
+[32m???[39m 33 modules transformed.
+npm : [31m???[39m 
+Build failed in 996ms
+No linha:1 caractere:1
++ npm run build 2>&1 | 
+Out-File -Encoding 
+ascii build.txt
++ ~~~~~~~~~~~~~~~~~~
+    + CategoryInfo     
+         : NotSpecifi  
+  ed: ([31m???[39m   
+  Build failed in 9    
+96ms:String) [], R    
+emoteException
+    + FullyQualifiedEr 
+   rorId : NativeComm  
+  andError
+ 
+[31merror during 
+build:
+[31mCould not resolve 
+"../components/ui/Statu
+sPill.jsx" from "src/pa
+ges/Faturamentos.jsx"[
+31m
+file: [36mC:/Users/ana
+listadados02/consultori
+o-dentista/frontend-rea
+ct/src/pages/Faturament
+os.jsx[31m
+    at getRollupError (
+file:///C:/Users/analis
+tadados02/consultorio-d
+entista/frontend-react/
+node_modules/rollup/dis
+t/es/shared/parseAst.js
+:402:41)
+    at error (file:///C
+:/Users/analistadados02
+/consultorio-dentista/f
+rontend-react/node_modu
+les/rollup/dist/es/shar
+ed/parseAst.js:398:42)
+    at ModuleLoader.han
+dleInvalidResolvedId (f
+ile:///C:/Users/analist
+adados02/consultorio-de
+ntista/frontend-react/n
+ode_modules/rollup/dist
+/es/shared/node-entry.j
+s:21710:24)
+    at file:///C:/Users
+/analistadados02/consul
+torio-dentista/frontend
+-react/node_modules/rol
+lup/dist/es/shared/node
+-entry.js:21670:26[39m

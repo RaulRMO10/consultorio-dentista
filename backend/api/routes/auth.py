@@ -71,6 +71,9 @@ class ChangePasswordRequest(BaseModel):
     senha_atual: str
     nova_senha: str
 
+class AdminPasswordReset(BaseModel):
+    nova_senha: str
+
 
 # ── Helpers JWT ───────────────────────────────────────────────────────────────
 def create_token(user_id: str, email: str, nome: str, role: str) -> str:
@@ -207,6 +210,21 @@ def desativar_usuario(usuario_id: str, current: dict = Depends(require_admin)):
     sb = get_supabase()
     sb.table("usuarios").update({"ativo": False}).eq("id", usuario_id).execute()
     return None
+
+
+@router.post("/usuarios/{usuario_id}/reset-password")
+def admin_reset_password(usuario_id: str, body: AdminPasswordReset, current: dict = Depends(require_admin)):
+    if len(body.nova_senha) < 6:
+        raise HTTPException(status_code=400, detail="Nova senha deve ter pelo menos 6 caracteres")
+
+    nova_hash = _hash_password(body.nova_senha)
+    sb = get_supabase()
+    res = sb.table("usuarios").update({"senha_hash": nova_hash}).eq("id", usuario_id).execute()
+    
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    
+    return {"message": "Senha redefinida com sucesso pelo administrador"}
 
 
 @router.post("/change-password")

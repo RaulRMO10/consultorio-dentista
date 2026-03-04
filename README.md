@@ -1,18 +1,18 @@
-﻿# ðŸ¦· OdontoSystem â€” GestÃ£o de ConsultÃ³rio OdontolÃ³gico
+﻿# 🦷 OdontoSystem — Gestão de Consultório Odontológico
 
-Sistema completo de gestÃ£o para consultÃ³rios odontolÃ³gicos, construÃ­do com **FastAPI**, **Streamlit** e **Supabase (PostgreSQL)**.
+Sistema completo de gestão para consultórios odontológicos, com arquitetura dividida em moderno **Backend FastAPI**, **Frontend em React + Vite + Tailwind CSS v4** e hospedagem no **Supabase (PostgreSQL)**.
 
 ---
 
-## ðŸš€ Tecnologias
+## 🚀 Tecnologias
 
 | Camada | Tecnologia |
 |---|---|
 | Backend | FastAPI + Uvicorn (Python 3.11+) |
-| Frontend | Streamlit |
+| Frontend | React + Vite + Tailwind CSS v4 |
 | Banco de Dados | PostgreSQL via Supabase (PostgREST) |
-| AutenticaÃ§Ã£o | JWT (`python-jose`) + bcrypt |
-| ValidaÃ§Ã£o | Pydantic V2 |
+| Autenticação | JWT (`python-jose`) + bcrypt |
+| Validação | Pydantic V2 |
 
 ---
 
@@ -29,37 +29,44 @@ Sistema completo de gestÃ£o para consultÃ³rios odontolÃ³gicos, construÃ­
 
 ---
 
-## ðŸ“ Estrutura do Projeto
+## 📁 Estrutura do Projeto
 
 ```
 odontosystem/
-â”œâ”€â”€ backend/
-â”‚   â”œâ”€â”€ api/
-â”‚   â”‚   â”œâ”€â”€ main.py              # App FastAPI + routers
-â”‚   â”‚   â””â”€â”€ routes/
-â”‚   â”‚       â”œâ”€â”€ auth.py          # Login / JWT / usuÃ¡rios
-â”‚   â”‚       â”œâ”€â”€ pacientes.py
-â”‚   â”‚       â”œâ”€â”€ dentistas.py
-â”‚   â”‚       â”œâ”€â”€ agendamentos.py
-â”‚   â”‚       â”œâ”€â”€ procedimentos.py
-â”‚   â”‚       â”œâ”€â”€ financeiro_consultorio.py
-â”‚   â”‚       â””â”€â”€ financeiro_pessoal.py
-â”‚   â””â”€â”€ config/
-â”‚       â”œâ”€â”€ settings.py          # Pydantic Settings (lÃª .env)
-â”‚       â””â”€â”€ supabase_client.py   # Cliente PostgREST
-â”œâ”€â”€ frontend/
-â”‚   â”œâ”€â”€ app.py                   # Dashboard principal
-â”‚   â”œâ”€â”€ components/
-â”‚   â”‚   â”œâ”€â”€ auth.py              # require_login(), tela de login
-â”‚   â”‚   â””â”€â”€ sidebar.py           # Sidebar compartilhada
-â”‚   â””â”€â”€ pages/
-â”‚       â”œâ”€â”€ 1_Pacientes.py
-â”‚       â”œâ”€â”€ 2_Dentistas.py
-â”‚       â”œâ”€â”€ 3_Agendamentos.py
-â”‚       â”œâ”€â”€ 4_Procedimentos.py
-â”‚       â”œâ”€â”€ 5_Fin_Consultorio.py
-â”‚       â”œâ”€â”€ 6_Fin_Pessoal.py
-â”‚       â””â”€â”€ 7_Usuarios.py
+├── backend/
+│   ├── api/
+│   │   ├── main.py              # App FastAPI + routers
+│   │   └── routes/
+│   │       ├── auth.py          # Login / JWT / usuários
+│   │       ├── pacientes.py
+│   │       ├── dentistas.py
+│   │       ├── agendamentos.py
+│   │       ├── procedimentos.py
+│   │       ├── financeiro_consultorio.py
+│   │       └── financeiro_pessoal.py
+│   └── config/
+│       ├── settings.py          # Pydantic Settings (lê .env)
+│       └── supabase_client.py   # Cliente PostgREST
+├── frontend-react/              # NOVO FRONTEND EM REACT
+│   ├── src/
+│   │   ├── components/ui        # Componentes genéricos (Buttons, Cards)
+│   │   ├── pages/               # Views (Dashboard, Pacientes, Finanças, etc.)
+│   │   ├── services/api.js      # Instância Axios com Interceptors JWT
+│   │   ├── App.jsx              # React Router
+│   │   └── index.css            # Tailwind CSS v4
+│   ├── package.json             # Dependências Node.js
+│   └── vite.config.js           # Configurações do Vite
+├── database/
+│   ├── schema.sql               # Tabelas principais
+│   ├── schema_financeiro.sql    # Tabelas financeiras
+│   └── schema_auth.sql          # Tabela de usuários + admin inicial
+├── .env.example                 # Modelo de variáveis de ambiente
+├── requirements.txt
+├── criar_admin.py               # CLI para criar usuário admin
+├── start_backend.py             # Script para rodar API REST
+├── start_frontend.py            # Script adaptado para npm run dev
+└── start.bat                    # Inicia tudo (Windows)
+```
 â”œâ”€â”€ database/
 â”‚   â”œâ”€â”€ schema.sql               # Tabelas principais
 â”‚   â”œâ”€â”€ schema_financeiro.sql    # Tabelas financeiras
@@ -138,14 +145,15 @@ start.bat
 ### Ou manualmente (dois terminais)
 
 ```bash
-# Terminal 1 â€” Backend
+# Terminal 1 — Backend (FastAPI Python)
 python start_backend.py
 # API em http://localhost:8000
 # Docs em http://localhost:8000/docs
 
-# Terminal 2 â€” Frontend
+# Terminal 2 — Frontend (React Vite)
 python start_frontend.py
-# Interface em http://localhost:8501
+# (que chama internamente 'npm run dev' na pasta frontend-react)
+# Interface em http://localhost:5173
 ```
 
 ---
@@ -202,13 +210,11 @@ JWT_SECRET_KEY=<chave_muito_forte_aqui>
 
 SugestÃµes de hospedagem gratuita:
 
-| ServiÃ§o | Componente |
-|---|---|
-| [Railway](https://railway.app) | Backend + Frontend |
+| [Railway](https://railway.app) | Backend + Banco de dados |
 | [Render](https://render.com) | Backend |
-| [Streamlit Cloud](https://streamlit.io/cloud) | Frontend |
-| [Supabase](https://supabase.com) | Banco de dados |
+| [Vercel / Netlify](https://vercel.com) | Frontend React |
+| [Supabase](https://supabase.com) | Banco de dados PostgreSQL |
 
 ---
 
-**VersÃ£o:** 1.0.0 Â· **Stack:** FastAPI + Streamlit + Supabase
+**Versão:** 2.0.0 · **Stack Atual:** FastAPI + React + Vite + Tailwind CSS + Supabase

@@ -1,0 +1,29 @@
+
+> frontend-react@0.0.0 build
+> vite build
+
+[36mvite v7.3.1 [32mbuilding client environment for production...[36m[39m
+transforming...
+[32m✓[39m 1810 modules transformed.
+[31m✗[39m Build failed in 2.81s
+[31merror during build:
+[31msrc/pages/Faturamentos.jsx (5:7): "default" is not exported by "src/components/ui/Modal.jsx", imported by "src/pages/Faturamentos.jsx".[31m
+file: [36mC:/Users/analistadados02/consultorio-dentista/frontend-react/src/pages/Faturamentos.jsx:5:7[31m
+[33m
+3: import api from '../services/api';
+4: import { KpiCard } from '../components/ui/KpiCard.jsx';
+5: import Modal from '../components/ui/Modal.jsx';
+          ^
+6: import FaturamentoForm from '../components/ui/FaturamentoForm.jsx';
+7: import { StatusPill } from '../components/ui/StatusPill.jsx';
+[31m
+    at getRollupError (file:///C:/Users/analistadados02/consultorio-dentista/frontend-react/node_modules/rollup/dist/es/shared/parseAst.js:402:41)
+    at error (file:///C:/Users/analistadados02/consultorio-dentista/frontend-react/node_modules/rollup/dist/es/shared/parseAst.js:398:42)
+    at Module.error (file:///C:/Users/analistadados02/consultorio-dentista/frontend-react/node_modules/rollup/dist/es/shared/node-entry.js:17040:16)
+    at Module.traceVariable (file:///C:/Users/analistadados02/consultorio-dentista/frontend-react/node_modules/rollup/dist/es/shared/node-entry.js:17452:29)
+    at ModuleScope.findVariable (file:///C:/Users/analistadados02/consultorio-dentista/frontend-react/node_modules/rollup/dist/es/shared/node-entry.js:15070:39)
+    at ReturnValueScope.findVariable (file:///C:/Users/analistadados02/consultorio-dentista/frontend-react/node_modules/rollup/dist/es/shared/node-entry.js:5673:38)
+    at FunctionBodyScope.findVariable (file:///C:/Users/analistadados02/consultorio-dentista/frontend-react/node_modules/rollup/dist/es/shared/node-entry.js:5673:38)
+    at Identifier.bind (file:///C:/Users/analistadados02/consultorio-dentista/frontend-react/node_modules/rollup/dist/es/shared/node-entry.js:5447:40)
+    at CallExpression.bind (file:///C:/Users/analistadados02/consultorio-dentista/frontend-react/node_modules/rollup/dist/es/shared/node-entry.js:2825:28)
+    at CallExpression.bind (file:///C:/Users/analistadados02/consultorio-dentista/frontend-react/node_modules/rollup/dist/es/shared/node-entry.js:12179:15)[39m
