@@ -34,7 +34,8 @@ class Settings(BaseSettings):
     API_PORT: int = 8000
 
     # Frontend
-    BACKEND_URL: str = "http://localhost:8000"
+    BACKEND_URL: str = "https://consultorio-dentista-l59d.onrender.com"
+    CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://localhost:8501", "https://consultorio-dentista.vercel.app"]
 
     @property
     def DATABASE_URL(self) -> str:
