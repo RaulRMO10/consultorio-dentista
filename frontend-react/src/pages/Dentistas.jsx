@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import api from '../services/api';
 import { Stethoscope, Search, Plus, Edit2, Trash2, FileWarning } from 'lucide-react';
 import { Modal } from '../components/ui/Modal';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { DentistaForm } from '../components/ui/DentistaForm';
 
 const Dentistas = () => {
@@ -9,15 +10,18 @@ const Dentistas = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [showInactive, setShowInactive] = useState(false);
 
     // Modal States
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedDentista, setSelectedDentista] = useState(null);
+    const [deleteModalConfig, setDeleteModalConfig] = useState({ isOpen: false, dentistaId: null, dentistaNome: '' });
 
     const fetchDentistas = async () => {
         try {
             setLoading(true);
-            const response = await api.get('/api/dentistas', { params: { ativo: true } });
+            const params = showInactive ? {} : { ativo: true };
+            const response = await api.get('/api/dentistas', { params });
             setDentistas(response.data);
         } catch (err) {
             setError('Falha ao carregar a lista de dentistas.');
@@ -29,7 +33,7 @@ const Dentistas = () => {
 
     useEffect(() => {
         fetchDentistas();
-    }, []);
+    }, [showInactive]);
 
     // Handlers
     const handleOpenModal = (dentista = null) => {
@@ -47,14 +51,25 @@ const Dentistas = () => {
         fetchDentistas(); // Refetch after Create/Update
     };
 
-    const handleDelete = async (id, nome) => {
-        if (window.confirm(`Tem certeza que deseja inativar o dr(a) ${nome}? Ele(a) deixará de aparecer em novos agendamentos.`)) {
-            try {
-                await api.delete(`/api/dentistas/${id}`);
-                fetchDentistas(); // Refetch
-            } catch (err) {
-                console.error(err);
-                alert("Erro ao inativar dentista.");
+    const handleDelete = (id, nome) => {
+        setDeleteModalConfig({ isOpen: true, dentistaId: id, dentistaNome: nome });
+    };
+
+    const confirmDelete = async () => {
+        const { dentistaId } = deleteModalConfig;
+        if (!dentistaId) return;
+
+        try {
+            await api.delete(`/api/dentistas/${dentistaId}`);
+            fetchDentistas(); // Refetch
+            setDeleteModalConfig({ isOpen: false, dentistaId: null, dentistaNome: '' });
+        } catch (err) {
+            console.error(err);
+            setDeleteModalConfig({ isOpen: false, dentistaId: null, dentistaNome: '' });
+            if (err.response?.data?.detail) {
+                alert(err.response.data.detail);
+            } else {
+                alert("Erro ao excluir dentista.");
             }
         }
     };
@@ -66,7 +81,7 @@ const Dentistas = () => {
     );
 
     return (
-        <div className="max-w-7xl mx-auto animate-in fade-in duration-500 pb-12">
+        <div className="w-full animate-in fade-in duration-500 pb-12">
             <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-3">
@@ -98,19 +113,32 @@ const Dentistas = () => {
             <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden min-h-[500px]">
                 {/* Toolbar */}
                 <div className="p-4 border-b border-slate-100 dark:border-slate-700/50 flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-50/50 dark:bg-slate-800/50">
-                    <div className="relative w-full sm:w-96">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                            <Search size={18} />
+                    <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
+                        <div className="relative w-full sm:w-96">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                                <Search size={18} />
+                            </div>
+                            <input
+                                type="text"
+                                placeholder="Buscar por nome, CRO ou especialidade..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="block w-full pl-10 pr-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 bg-white dark:bg-slate-900 text-slate-900 dark:text-white transition-all text-sm"
+                            />
                         </div>
-                        <input
-                            type="text"
-                            placeholder="Buscar por nome, CRO ou especialidade..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="block w-full pl-10 pr-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 bg-white dark:bg-slate-900 text-slate-900 dark:text-white transition-all text-sm"
-                        />
+                        <label className="flex items-center gap-2 cursor-pointer p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
+                            <input
+                                type="checkbox"
+                                checked={showInactive}
+                                onChange={(e) => setShowInactive(e.target.checked)}
+                                className="w-4 h-4 rounded text-sky-600 bg-slate-100 border-slate-300 focus:ring-sky-500 dark:focus:ring-sky-600 dark:ring-offset-slate-800 focus:ring-2 dark:bg-slate-700 dark:border-slate-600"
+                            />
+                            <span className="text-sm font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                                Mostrar inativos
+                            </span>
+                        </label>
                     </div>
-                    <div className="text-sm text-slate-500 dark:text-slate-400 font-medium font-medium px-4">
+                    <div className="text-sm text-slate-500 dark:text-slate-400 font-medium px-4">
                         {filteredDentistas.length} registros encontrados
                     </div>
                 </div>
@@ -208,6 +236,18 @@ const Dentistas = () => {
                     onCancel={handleCloseModal}
                 />
             </Modal>
+
+            {/* Modal de Confirmação de Exclusão */}
+            <ConfirmDialog
+                isOpen={deleteModalConfig.isOpen}
+                onClose={() => setDeleteModalConfig({ isOpen: false, dentistaId: null, dentistaNome: '' })}
+                onConfirm={confirmDelete}
+                title="Excluir Dentista"
+                message={`Tem certeza que deseja excluir o(a) dr(a) ${deleteModalConfig.dentistaNome}?`}
+                confirmText="Excluir"
+                cancelText="Cancelar"
+                isDanger={true}
+            />
         </div>
     );
 };

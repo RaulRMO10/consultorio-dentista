@@ -19,7 +19,7 @@ const Auth = () => {
         // Simulated login - replace with actual API call to FastAPI
         try {
             const payload = {
-                email: username,
+                username: username,
                 senha: password
             };
 
@@ -70,14 +70,14 @@ const Auth = () => {
                         <form onSubmit={handleLogin} className="space-y-6">
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                                    E-mail de Login
+                                    Nome de Usuário
                                 </label>
                                 <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                                         <User size={20} />
                                     </div>
                                     <input
-                                        type="email"
+                                        type="text"
                                         value={username}
                                         onChange={(e) => setUsername(e.target.value)}
                                         className="block w-full pl-10 pr-3 py-3 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 bg-white dark:bg-slate-900 text-slate-900 dark:text-white transition-all placeholder-slate-400"

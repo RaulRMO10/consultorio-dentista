@@ -3,6 +3,7 @@ import api from '../../services/api.js';
 import { Button } from './Button';
 import { Input } from './Input';
 import { User, Phone, MapPin, Mail, Calendar, FileWarning } from 'lucide-react';
+import { maskCPF, maskPhone, maskCEP } from '../../utils/masks';
 
 export const PacienteForm = ({
     initialData = null,
@@ -51,9 +52,15 @@ export const PacienteForm = ({
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
+        let formattedValue = type === 'checkbox' ? checked : value;
+
+        if (name === 'cpf') formattedValue = maskCPF(value);
+        if (name === 'telefone' || name === 'celular') formattedValue = maskPhone(value);
+        if (name === 'cep') formattedValue = maskCEP(value);
+
         setFormData(prev => ({
             ...prev,
-            [name]: type === 'checkbox' ? checked : value
+            [name]: formattedValue
         }));
     };
 
@@ -119,6 +126,7 @@ export const PacienteForm = ({
                     value={formData.cpf}
                     onChange={handleChange}
                     placeholder="000.000.000-00"
+                    maxLength={14}
                 />
 
                 <Input
@@ -128,6 +136,7 @@ export const PacienteForm = ({
                     onChange={handleChange}
                     icon={Phone}
                     placeholder="(00) 0000-0000"
+                    maxLength={14}
                     required
                 />
                 <Input
@@ -137,6 +146,7 @@ export const PacienteForm = ({
                     onChange={handleChange}
                     icon={Phone}
                     placeholder="(00) 90000-0000"
+                    maxLength={15}
                 />
 
                 <Input
@@ -146,7 +156,6 @@ export const PacienteForm = ({
                     value={formData.email}
                     onChange={handleChange}
                     icon={Mail}
-                    placeholder="paciente@email.com"
                 />
                 <Input
                     label="Data de Nascimento"
@@ -194,6 +203,7 @@ export const PacienteForm = ({
                             value={formData.cep}
                             onChange={handleChange}
                             placeholder="00000-000"
+                            maxLength={9}
                         />
                     </div>
                 </div>

@@ -118,7 +118,7 @@ const PacienteDetalhes = () => {
     const procedimentosConcluidos = procedimentosDoPaciente.filter(p => p.status_clinico === 'CONCLUIDO');
 
     return (
-        <div className="max-w-7xl mx-auto animate-in fade-in duration-500 pb-12">
+        <div className="w-full animate-in fade-in duration-500 pb-12">
             {/* Header: Dados do Paciente */}
             <header className="mb-6 flex items-center justify-between">
                 <div className="flex items-center gap-4">

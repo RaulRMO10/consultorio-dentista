@@ -53,7 +53,7 @@ const FinPessoal = () => {
     }
 
     return (
-        <div className="max-w-7xl mx-auto animate-in fade-in duration-500 pb-12">
+        <div className="w-full animate-in fade-in duration-500 pb-12">
             <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-3">

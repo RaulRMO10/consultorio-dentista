@@ -42,7 +42,7 @@ const Shell = ({ children }) => {
   return (
     <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 font-sans selection:bg-teal-500/30">
       <Sidebar />
-      <main className="flex-1 p-4 md:p-8 overflow-auto h-screen relative">
+      <main className="flex-1 p-3 md:p-5 overflow-y-auto overflow-x-hidden h-screen relative">
         {/* Subtle global gradient background for the main content area */}
         <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-teal-400/5 dark:bg-teal-900/10 rounded-full blur-[100px] pointer-events-none -translate-y-1/2 translate-x-1/3"></div>
         <div className="relative z-10 w-full">

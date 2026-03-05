@@ -145,7 +145,7 @@ const FinGlobalDashboard = () => {
     }
 
     return (
-        <div className="max-w-7xl mx-auto animate-in fade-in duration-500 pb-20">
+        <div className="w-full animate-in fade-in duration-500 pb-20">
             {/* CABEÇALHO GLOBAL (As described in plano_financeiro_v2.md) */}
             <header className="mb-8 bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                 <div>

@@ -76,9 +76,19 @@ def atualizar_dentista(dentista_id: str, dentista_data: DentistaUpdate):
 
 @router.delete("/{dentista_id}", status_code=status.HTTP_204_NO_CONTENT)
 def deletar_dentista(dentista_id: str):
-    """Soft delete - marca como inativo"""
+    """Hard delete com verificação de histórico (bloqueio de integridade)"""
     sb = get_supabase()
-    result = sb.table('dentistas').update({'ativo': False}).eq('id', dentista_id).execute()
+    
+    # 1. Checa se o dentista tem histórico de agendamentos
+    agendamentos = sb.table('agendamentos').select('id', count='exact').eq('dentista_id', dentista_id).execute()
+    if agendamentos.count and agendamentos.count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Não é possível excluir este Dr(a) pois possui histórico de agendamentos atrelados em seu nome. Em vez de excluir, inative o cadastro (através da edição)."
+        )
+
+    # 2. Hard Delete
+    result = sb.table('dentistas').delete().eq('id', dentista_id).execute()
     if not result.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dentista não encontrado")
     return None

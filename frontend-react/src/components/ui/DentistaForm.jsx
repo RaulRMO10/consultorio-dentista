@@ -3,6 +3,7 @@ import api from '../../services/api.js';
 import { Button } from './Button';
 import { Input } from './Input';
 import { User, Phone, Mail, Award, FileWarning, Fingerprint } from 'lucide-react';
+import { maskPhone } from '../../utils/masks';
 
 export const DentistaForm = ({
     initialData = null,
@@ -37,9 +38,13 @@ export const DentistaForm = ({
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
+        let formattedValue = type === 'checkbox' ? checked : value;
+
+        if (name === 'telefone') formattedValue = maskPhone(value);
+
         setFormData(prev => ({
             ...prev,
-            [name]: type === 'checkbox' ? checked : value
+            [name]: formattedValue
         }));
     };
 
@@ -125,6 +130,7 @@ export const DentistaForm = ({
                     onChange={handleChange}
                     icon={Phone}
                     placeholder="(00) 0000-0000"
+                    maxLength={15}
                 />
 
                 <Input

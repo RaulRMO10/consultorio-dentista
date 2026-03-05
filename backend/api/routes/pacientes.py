@@ -95,9 +95,19 @@ def atualizar_paciente(paciente_id: str, paciente_data: PacienteUpdate):
 
 @router.delete("/{paciente_id}", status_code=status.HTTP_204_NO_CONTENT)
 def deletar_paciente(paciente_id: str):
-    """Soft delete - marca como inativo"""
+    """Hard delete com verificação de histórico (bloqueio de integridade)"""
     sb = get_supabase()
-    result = sb.table('pacientes').update({'ativo': False}).eq('id', paciente_id).execute()
+    
+    # 1. Checa se o paciente tem histórico de agendamentos
+    agendamentos = sb.table('agendamentos').select('id', count='exact').eq('paciente_id', paciente_id).execute()
+    if agendamentos.count and agendamentos.count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Não é possível excluir este paciente pois ele possui histórico de agendamentos no sistema. Em vez de excluir, você deve inativá-lo (editando o cadastro)."
+        )
+
+    # 2. Hard Delete
+    result = sb.table('pacientes').delete().eq('id', paciente_id).execute()
     if not result.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Paciente não encontrado")
     return None

@@ -2,11 +2,54 @@
 Rotas da API - Agendamentos
 """
 from fastapi import APIRouter, HTTPException, status
-from datetime import datetime
+from datetime import datetime, timedelta
 from pydantic import BaseModel
 from backend.config.supabase_client import get_supabase
 
 router = APIRouter()
+
+def _verificar_conflito(dentista_id: str, new_start_dt: datetime, duracao: int, exclude_id: str | None = None) -> bool:
+    sb = get_supabase()
+    
+    # Define os limites do dia para otimizar a busca
+    st_day = new_start_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+    en_day = st_day + timedelta(days=1)
+    
+    res = sb.table("agendamentos").select("id, data_hora, duracao_minutos, status").eq("dentista_id", dentista_id).gte("data_hora", st_day.isoformat()).lt("data_hora", en_day.isoformat()).execute()
+    
+    if not res.data:
+        return False
+        
+    new_end_dt = new_start_dt + timedelta(minutes=duracao)
+    
+    for ag in res.data:
+        if exclude_id and ag["id"] == exclude_id:
+            continue
+        if ag.get("status") in ["cancelado", "falta"]:
+            continue
+            
+        ag_dt_str = ag["data_hora"]
+        if ag_dt_str.endswith("Z"):
+            ag_dt_str = ag_dt_str[:-1] + "+00:00"
+        
+        try:
+            ag_start_dt = datetime.fromisoformat(ag_dt_str)
+        except Exception:
+            continue
+            
+        # Comparar com ou sem timezone de forma segura
+        if ag_start_dt.tzinfo and not new_start_dt.tzinfo:
+            new_start_dt = new_start_dt.replace(tzinfo=ag_start_dt.tzinfo)
+        elif new_start_dt.tzinfo and not ag_start_dt.tzinfo:
+            ag_start_dt = ag_start_dt.replace(tzinfo=new_start_dt.tzinfo)
+            
+        ag_end_dt = ag_start_dt + timedelta(minutes=ag["duracao_minutos"])
+        
+        # logica de sobreposicao (start1 < end2) e (start2 < end1)
+        if ag_start_dt < new_end_dt and new_start_dt < ag_end_dt:
+            return True
+            
+    return False
 
 
 class AgendamentoBase(BaseModel):
@@ -68,6 +111,14 @@ def criar_agendamento(agendamento_data: AgendamentoCreate):
     dados = agendamento_data.model_dump()
     procedimentos_ids = dados.pop("procedimentos_ids", [])
     
+    dentista_id = dados.get("dentista_id")
+    duracao = dados.get("duracao_minutos", 60)
+    start_dt = agendamento_data.data_hora
+    
+    if _verificar_conflito(dentista_id, start_dt, duracao):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Já existe um agendamento neste horário para este profissional.")
+
+    
     # Remove empty strings to prevent postgres malformed UUID errors
     if dados.get("clin_tratamento_id") == "":
         dados["clin_tratamento_id"] = None
@@ -104,8 +155,33 @@ def criar_agendamento(agendamento_data: AgendamentoCreate):
 @router.put("/{agendamento_id}")
 def atualizar_agendamento(agendamento_id: str, agendamento_data: AgendamentoUpdate):
     sb = get_supabase()
+    
+    # Verifica estado atual para obter dados não modificados e também validar existência
+    curr_res = sb.table("agendamentos").select("*").eq("id", agendamento_id).execute()
+    if not curr_res.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agendamento nao encontrado")
+    curr_ag = curr_res.data[0]
+
     dados = agendamento_data.model_dump(exclude_unset=True)
     procedimentos_ids = dados.pop("procedimentos_ids", None)
+    
+    # Validar sobreposição caso alterem data, duração, dentista ou reativem (status)
+    if any(k in dados for k in ["data_hora", "duracao_minutos", "dentista_id", "status"]):
+        dentista_id = dados.get("dentista_id", curr_ag.get("dentista_id"))
+        duracao = dados.get("duracao_minutos", curr_ag.get("duracao_minutos"))
+        
+        if "data_hora" in dados and agendamento_data.data_hora is not None:
+            start_dt = agendamento_data.data_hora
+        else:
+            dt_str = curr_ag.get("data_hora")
+            if dt_str.endswith("Z"): dt_str = dt_str[:-1] + "+00:00"
+            start_dt = datetime.fromisoformat(dt_str)
+
+        # Se não for cancelar, tem que testar
+        novo_status = dados.get("status", curr_ag.get("status"))
+        if novo_status not in ["cancelado", "falta"]:
+            if _verificar_conflito(dentista_id, start_dt, duracao, exclude_id=agendamento_id):
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="O novo horário entra em conflito com um agendamento existente para este profissional.")
     
     # Remove empty strings to prevent postgres malformed UUID errors
     if dados.get("clin_tratamento_id") == "":

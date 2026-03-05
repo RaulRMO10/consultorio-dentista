@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { PacienteForm } from '../components/ui/PacienteForm';
 import { formatDateBR } from '../utils/date';
 
@@ -13,16 +14,19 @@ const Pacientes = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [showInactive, setShowInactive] = useState(false);
     const navigate = useNavigate();
 
     // Modal States
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedPaciente, setSelectedPaciente] = useState(null);
+    const [deleteModalConfig, setDeleteModalConfig] = useState({ isOpen: false, pacienteId: null, pacienteNome: '' });
 
     const fetchPacientes = async () => {
         try {
             setLoading(true);
-            const response = await api.get('/api/pacientes', { params: { ativo: true } });
+            const params = showInactive ? {} : { ativo: true };
+            const response = await api.get('/api/pacientes', { params });
             setPacientes(response.data);
         } catch (err) {
             setError('Falha ao carregar a lista de pacientes.');
@@ -34,7 +38,7 @@ const Pacientes = () => {
 
     useEffect(() => {
         fetchPacientes();
-    }, []);
+    }, [showInactive]);
 
     // Handlers
     const handleOpenModal = (paciente = null) => {
@@ -52,14 +56,25 @@ const Pacientes = () => {
         fetchPacientes(); // Refetch after Create/Update
     };
 
-    const handleDelete = async (id, nome) => {
-        if (window.confirm(`Tem certeza que deseja inativar o paciente ${nome}? O registro em si não será perdido, mas ocultado.`)) {
-            try {
-                await api.delete(`/api/pacientes/${id}`);
-                fetchPacientes(); // Refetch
-            } catch (err) {
-                console.error(err);
-                alert("Erro ao inativar paciente.");
+    const handleDelete = (id, nome) => {
+        setDeleteModalConfig({ isOpen: true, pacienteId: id, pacienteNome: nome });
+    };
+
+    const confirmDelete = async () => {
+        const { pacienteId } = deleteModalConfig;
+        if (!pacienteId) return;
+
+        try {
+            await api.delete(`/api/pacientes/${pacienteId}`);
+            fetchPacientes(); // Refetch
+            setDeleteModalConfig({ isOpen: false, pacienteId: null, pacienteNome: '' });
+        } catch (err) {
+            console.error(err);
+            setDeleteModalConfig({ isOpen: false, pacienteId: null, pacienteNome: '' });
+            if (err.response?.data?.detail) {
+                alert(err.response.data.detail);
+            } else {
+                alert("Erro ao excluir paciente.");
             }
         }
     };
@@ -70,7 +85,7 @@ const Pacientes = () => {
     );
 
     return (
-        <div className="max-w-7xl mx-auto animate-in fade-in duration-500 pb-12">
+        <div className="w-full animate-in fade-in duration-500 pb-12">
             <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-3">
@@ -97,14 +112,27 @@ const Pacientes = () => {
             <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden min-h-[500px]">
                 {/* Toolbar */}
                 <div className="p-4 border-b border-slate-100 dark:border-slate-700/50 flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-50/50 dark:bg-slate-800/50">
-                    <Input
-                        icon={Search}
-                        placeholder="Buscar por nome ou CPF..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        containerClassName="w-full sm:w-96"
-                    />
-                    <div className="text-sm text-slate-500 dark:text-slate-400 font-medium font-medium px-4">
+                    <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
+                        <Input
+                            icon={Search}
+                            placeholder="Buscar por nome ou CPF..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            containerClassName="w-full sm:w-96"
+                        />
+                        <label className="flex items-center gap-2 cursor-pointer p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
+                            <input
+                                type="checkbox"
+                                checked={showInactive}
+                                onChange={(e) => setShowInactive(e.target.checked)}
+                                className="w-4 h-4 rounded text-teal-600 bg-slate-100 border-slate-300 focus:ring-teal-500 dark:focus:ring-teal-600 dark:ring-offset-slate-800 focus:ring-2 dark:bg-slate-700 dark:border-slate-600"
+                            />
+                            <span className="text-sm font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                                Mostrar inativos
+                            </span>
+                        </label>
+                    </div>
+                    <div className="text-sm text-slate-500 dark:text-slate-400 font-medium px-4">
                         {filteredPacientes.length} registros encontrados
                     </div>
                 </div>
@@ -213,6 +241,18 @@ const Pacientes = () => {
                     onCancel={handleCloseModal}
                 />
             </Modal>
+
+            {/* Modal de Confirmação de Exclusão */}
+            <ConfirmDialog
+                isOpen={deleteModalConfig.isOpen}
+                onClose={() => setDeleteModalConfig({ isOpen: false, pacienteId: null, pacienteNome: '' })}
+                onConfirm={confirmDelete}
+                title="Excluir Paciente"
+                message={`Tem certeza que deseja excluir o paciente ${deleteModalConfig.pacienteNome}?`}
+                confirmText="Excluir"
+                cancelText="Cancelar"
+                isDanger={true}
+            />
         </div>
     );
 };

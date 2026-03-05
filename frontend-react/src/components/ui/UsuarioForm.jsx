@@ -6,7 +6,7 @@ const UsuarioForm = ({ isOpen, onClose, onSave, onDesativar, initialData }) => {
     const isEdit = !!initialData;
     const [formData, setFormData] = useState({
         nome: '',
-        email: '',
+        username: '',
         senha: '',
         role: 'recepcionista',
         ativo: true
@@ -18,7 +18,7 @@ const UsuarioForm = ({ isOpen, onClose, onSave, onDesativar, initialData }) => {
             if (initialData) {
                 setFormData({
                     nome: initialData.nome || '',
-                    email: initialData.email || '',
+                    username: initialData.username || '',
                     senha: '', // Never show password context
                     nova_senha: '',
                     role: initialData.role || 'recepcionista',
@@ -27,7 +27,7 @@ const UsuarioForm = ({ isOpen, onClose, onSave, onDesativar, initialData }) => {
             } else {
                 setFormData({
                     nome: '',
-                    email: '',
+                    username: '',
                     senha: '',
                     nova_senha: '',
                     role: 'recepcionista',
@@ -88,19 +88,18 @@ const UsuarioForm = ({ isOpen, onClose, onSave, onDesativar, initialData }) => {
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">E-mail (Login)</label>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nome de Usuário</label>
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                     <Mail size={18} className="text-slate-400" />
                                 </div>
                                 <input
-                                    type="email"
-                                    name="email"
+                                    type="text"
+                                    name="username"
                                     required
-                                    value={formData.email}
+                                    value={formData.username}
                                     onChange={handleChange}
                                     className="pl-10 w-full rounded-xl border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-teal-500 focus:border-teal-500"
-                                    placeholder="joao@clinica.com"
                                 />
                             </div>
                         </div>

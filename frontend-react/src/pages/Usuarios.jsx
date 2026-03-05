@@ -71,8 +71,8 @@ const Usuarios = () => {
     };
 
     const filteredUsuarios = usuarios.filter(u =>
-        (u.nome || u.email).toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (u.role && u.role.toLowerCase().includes(searchTerm.toLowerCase()))
+        (u.nome || u.username).toLowerCase().includes(searchTerm.toLowerCase()) ||
+        u.role.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     const getRoleIcon = (role) => {
@@ -84,7 +84,7 @@ const Usuarios = () => {
     };
 
     return (
-        <div className="max-w-7xl mx-auto animate-in fade-in duration-500 pb-12">
+        <div className="w-full animate-in fade-in duration-500 pb-12">
             <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-3">
@@ -138,7 +138,7 @@ const Usuarios = () => {
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider font-semibold">
-                                <th className="p-4 pl-6">Login / Username</th>
+                                <th className="p-4 pl-6">Nome / Usuário</th>
                                 <th className="p-4">Nível de Acesso (Role)</th>
                                 <th className="p-4">Dentista Vinculado?</th>
                                 <th className="p-4">Status</th>
@@ -157,8 +157,18 @@ const Usuarios = () => {
                                 filteredUsuarios.map((u) => (
                                     <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors group">
                                         <td className="p-4 pl-6">
-                                            <div className="font-semibold text-slate-900 dark:text-white group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">
-                                                {u.nome} <span className="text-slate-500 font-normal text-xs ml-2">({u.email})</span>
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 font-bold border border-slate-200 dark:border-slate-700">
+                                                    {u.nome.charAt(0).toUpperCase()}
+                                                </div>
+                                                <div>
+                                                    <div className="font-semibold text-slate-900 dark:text-white group-hover:text-teal-600 dark:text-teal-400 transition-colors">
+                                                        {u.nome} <span className="text-slate-500 font-normal text-xs ml-2">({u.username})</span>
+                                                    </div>
+                                                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                                                        ID: #{u.id.split('-')[0]}
+                                                    </div>
+                                                </div>
                                             </div>
                                         </td>
                                         <td className="p-4 text-sm text-slate-600 dark:text-slate-300">

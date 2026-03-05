@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
 import api from '../services/api';
-import { CalendarDays, Plus, Edit2, Trash2, FileWarning, Clock, Users, Stethoscope, DollarSign } from 'lucide-react';
+import { CalendarDays, Plus, Edit2, Trash2, FileWarning, Clock, Users, Stethoscope, DollarSign, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Modal } from '../components/ui/Modal';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { AgendamentoForm } from '../components/ui/AgendamentoForm';
 
 const Agendamentos = () => {
@@ -22,6 +23,8 @@ const Agendamentos = () => {
     // Modal States
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedAgendamento, setSelectedAgendamento] = useState(null);
+    const [deleteModalConfig, setDeleteModalConfig] = useState({ isOpen: false, agendamentoId: null });
+    const [updatingCards, setUpdatingCards] = useState(new Set()); // Para prevenir drops duplos rápidos
 
     const fetchData = async () => {
         try {
@@ -60,16 +63,23 @@ const Agendamentos = () => {
         fetchData();
     };
 
-    const handleDelete = async (id, e) => {
+    const handleDelete = (id, e) => {
         e.stopPropagation();
-        if (window.confirm(`Tem certeza que deseja cancelar esta consulta?`)) {
-            try {
-                await api.delete(`/api/agendamentos/${id}`);
-                fetchData();
-            } catch (err) {
-                console.error(err);
-                alert("Erro ao cancelar agendamento.");
-            }
+        setDeleteModalConfig({ isOpen: true, agendamentoId: id });
+    };
+
+    const confirmDelete = async () => {
+        const { agendamentoId } = deleteModalConfig;
+        if (!agendamentoId) return;
+
+        try {
+            await api.delete(`/api/agendamentos/${agendamentoId}`);
+            fetchData();
+            setDeleteModalConfig({ isOpen: false, agendamentoId: null });
+        } catch (err) {
+            console.error(err);
+            setError("Erro ao cancelar agendamento.");
+            setDeleteModalConfig({ isOpen: false, agendamentoId: null });
         }
     };
 
@@ -127,6 +137,10 @@ const Agendamentos = () => {
     };
 
     const handleDragStart = (e, agendamento) => {
+        if (updatingCards.has(agendamento.id)) {
+            e.preventDefault();
+            return;
+        }
         e.dataTransfer.setData('agendamento_id', agendamento.id);
         // Calculate the mouse offset within the card to prevent jumping when dropped
         const rect = e.currentTarget.getBoundingClientRect();
@@ -142,10 +156,12 @@ const Agendamentos = () => {
 
     const handleDrop = async (e, targetDentistaId) => {
         e.preventDefault();
+        setError(null); // Clear previous error
+
         const id = e.dataTransfer.getData('agendamento_id');
         const offsetY = parseInt(e.dataTransfer.getData('offsetY') || '0', 10);
 
-        if (!id) return;
+        if (!id || updatingCards.has(id)) return;
 
         const agendamento = agendamentos.find(a => a.id === id);
         if (!agendamento) return;
@@ -178,7 +194,8 @@ const Agendamentos = () => {
         });
 
         if (colliding) {
-            alert(`Choque de Horário!\nO dentista já tem um compromisso que cruza com esse horário.`);
+            setError(`Choque de Horário: O dentista já tem um compromisso que cruza com esse horário.`);
+            setTimeout(() => setError(null), 5000); // Clear after 5 seconds
             return;
         }
 
@@ -187,6 +204,13 @@ const Agendamentos = () => {
             a.id === id ? { ...a, data_hora: novaDataHoraLocal, dentista_id: targetDentistaId } : a
         ));
 
+        // Lock card from being dragged again until request finishes
+        setUpdatingCards(prev => {
+            const next = new Set(prev);
+            next.add(id);
+            return next;
+        });
+
         try {
             await api.put(`/api/agendamentos/${id}`, {
                 data_hora: novaDataHoraLocal,
@@ -194,8 +218,14 @@ const Agendamentos = () => {
             });
         } catch (err) {
             console.error("Erro ao mover card", err);
-            alert("Erro ao salvar no servidor.");
+            setError("Erro ao salvar a alteração de horário no servidor.");
             fetchData(); // Revert
+        } finally {
+            setUpdatingCards(prev => {
+                const next = new Set(prev);
+                next.delete(id);
+                return next;
+            });
         }
     };
 
@@ -233,7 +263,7 @@ const Agendamentos = () => {
                     handleOpenModal(agend);
                 }}
                 style={{ top: `${top}px`, height: `${height}px` }}
-                className={`absolute left-1 right-1 p-2 rounded-lg border-l-4 border-y border-r shadow-sm hover:shadow-md hover:z-50 cursor-pointer active:cursor-grabbing transition-shadow overflow-hidden group z-10 ${st.bg} ${st.border}`}
+                className={`absolute left-1 right-1 p-2 rounded-lg border-l-4 border-y border-r shadow-sm hover:shadow-md hover:z-50 cursor-pointer active:cursor-grabbing transition-shadow overflow-hidden group z-10 ${st.bg} ${st.border} ${updatingCards.has(agend.id) ? 'opacity-50 pointer-events-none' : ''}`}
             >
                 {/* Thin header row */}
                 <div className="flex justify-between items-start mb-1">
@@ -295,7 +325,7 @@ const Agendamentos = () => {
     };
 
     return (
-        <div className="max-w-7xl mx-auto animate-in fade-in duration-500 pb-12">
+        <div className="w-full animate-in fade-in duration-500 pb-12">
             <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-3">
@@ -325,14 +355,38 @@ const Agendamentos = () => {
 
             {/* Toolbar */}
             <div className="mb-6 p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700/50 shadow-sm flex flex-col sm:flex-row justify-between items-center gap-4">
-                <div className="flex items-center gap-4 w-full sm:w-auto">
+                <div className="flex items-center gap-3 w-full sm:w-auto">
                     <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Data:</label>
-                    <input
-                        type="date"
-                        value={filterDate}
-                        onChange={(e) => setFilterDate(e.target.value)}
-                        className="block pl-4 pr-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white transition-all text-sm font-medium outline-none"
-                    />
+                    <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-1 shadow-sm">
+                        <button
+                            onClick={() => {
+                                const d = new Date(filterDate + 'T12:00:00'); // Use mid-day to avoid timezone edge cases
+                                d.setDate(d.getDate() - 1);
+                                setFilterDate(d.toISOString().split('T')[0]);
+                            }}
+                            className="p-1.5 hover:bg-white dark:hover:bg-slate-800 rounded-lg text-slate-500 transition-colors"
+                            title="Dia Anterior"
+                        >
+                            <ChevronLeft size={18} />
+                        </button>
+                        <input
+                            type="date"
+                            value={filterDate}
+                            onChange={(e) => setFilterDate(e.target.value)}
+                            className="bg-transparent text-slate-900 dark:text-white transition-all text-sm font-medium outline-none text-center custom-date-input"
+                        />
+                        <button
+                            onClick={() => {
+                                const d = new Date(filterDate + 'T12:00:00');
+                                d.setDate(d.getDate() + 1);
+                                setFilterDate(d.toISOString().split('T')[0]);
+                            }}
+                            className="p-1.5 hover:bg-white dark:hover:bg-slate-800 rounded-lg text-slate-500 transition-colors"
+                            title="Próximo Dia"
+                        >
+                            <ChevronRight size={18} />
+                        </button>
+                    </div>
                 </div>
                 <div className="text-sm text-slate-500 dark:text-slate-400 font-medium bg-slate-100 dark:bg-slate-900 px-4 py-2 rounded-lg flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
@@ -429,6 +483,18 @@ const Agendamentos = () => {
                     onCancel={handleCloseModal}
                 />
             </Modal>
+
+            {/* Modal de Confirmação de Exclusão (Cancelamento) */}
+            <ConfirmDialog
+                isOpen={deleteModalConfig.isOpen}
+                onClose={() => setDeleteModalConfig({ isOpen: false, agendamentoId: null })}
+                onConfirm={confirmDelete}
+                title="Cancelar Consulta"
+                message="Tem certeza que deseja cancelar esta consulta?"
+                confirmText="Sim, Cancelar"
+                cancelText="Fechar"
+                isDanger={true}
+            />
         </div>
     );
 };

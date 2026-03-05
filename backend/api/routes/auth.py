@@ -47,7 +47,7 @@ def _verify_password(plain: str, hashed: str) -> bool:
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
 class LoginRequest(BaseModel):
-    email: str
+    username: str
     senha: str
 
 class TokenResponse(BaseModel):
@@ -57,13 +57,13 @@ class TokenResponse(BaseModel):
 
 class UsuarioCreate(BaseModel):
     nome: str
-    email: str
+    username: str
     senha: str
     role: str = "recepcionista"
 
 class UsuarioUpdate(BaseModel):
     nome: Optional[str]   = None
-    email: Optional[str]  = None
+    username: Optional[str] = None
     role: Optional[str]   = None
     ativo: Optional[bool] = None
 
@@ -76,11 +76,11 @@ class AdminPasswordReset(BaseModel):
 
 
 # ── Helpers JWT ───────────────────────────────────────────────────────────────
-def create_token(user_id: str, email: str, nome: str, role: str) -> str:
+def create_token(user_id: str, username: str, nome: str, role: str) -> str:
     expire = datetime.now(timezone.utc) + timedelta(hours=TOKEN_EXPIRE_HOURS)
     payload = {
         "sub":   user_id,
-        "email": email,
+        "username": username,
         "nome":  nome,
         "role":  role,
         "exp":   expire,
@@ -115,10 +115,10 @@ def require_admin(user: dict = Depends(get_current_user)) -> dict:
 @router.post("/login", response_model=TokenResponse)
 def login(body: LoginRequest):
     sb = get_supabase()
-    res = sb.table("usuarios").select("*").eq("email", body.email.lower().strip()).execute()
+    res = sb.table("usuarios").select("*").eq("username", body.username.lower().strip()).execute()
 
     if not res.data:
-        raise HTTPException(status_code=401, detail="E-mail ou senha incorretos")
+        raise HTTPException(status_code=401, detail="Usuário ou senha incorretos")
 
     user = res.data[0]
 
@@ -126,12 +126,12 @@ def login(body: LoginRequest):
         raise HTTPException(status_code=403, detail="Usuário inativo. Contate o administrador.")
 
     if not _verify_password(body.senha, user["senha_hash"]):
-        raise HTTPException(status_code=401, detail="E-mail ou senha incorretos")
+        raise HTTPException(status_code=401, detail="Usuário ou senha incorretos")
 
     # Registra último acesso
     sb.table("usuarios").update({"ultimo_acesso": datetime.now(timezone.utc).isoformat()}).eq("id", user["id"]).execute()
 
-    token = create_token(user["id"], user["email"], user["nome"], user["role"])
+    token = create_token(user["id"], user["username"], user["nome"], user["role"])
 
     return {
         "access_token": token,
@@ -139,7 +139,7 @@ def login(body: LoginRequest):
         "user": {
             "id":    user["id"],
             "nome":  user["nome"],
-            "email": user["email"],
+            "username": user["username"],
             "role":  user["role"],
         }
     }
@@ -154,7 +154,7 @@ def get_me(current: dict = Depends(get_current_user)):
 def listar_usuarios(current: dict = Depends(require_admin)):
     sb = get_supabase()
     res = sb.table("usuarios").select(
-        "id,nome,email,role,ativo,ultimo_acesso,created_at"
+        "id,nome,username,role,ativo,ultimo_acesso,created_at"
     ).order("nome").execute()
     return res.data
 
@@ -169,15 +169,15 @@ def criar_usuario(body: UsuarioCreate, current: dict = Depends(require_admin)):
         raise HTTPException(status_code=400, detail="Senha deve ter pelo menos 6 caracteres")
 
     sb = get_supabase()
-    # Verificar e-mail duplicado
-    existing = sb.table("usuarios").select("id").eq("email", body.email.lower().strip()).execute()
+    # Verificar apelido duplicado
+    existing = sb.table("usuarios").select("id").eq("username", body.username.lower().strip()).execute()
     if existing.data:
-        raise HTTPException(status_code=400, detail="E-mail já cadastrado")
+        raise HTTPException(status_code=400, detail="Nome de usuário já cadastrado")
 
     senha_hash = _hash_password(body.senha)
     res = sb.table("usuarios").insert({
         "nome":       body.nome.strip(),
-        "email":      body.email.lower().strip(),
+        "username":   body.username.lower().strip(),
         "senha_hash": senha_hash,
         "role":       body.role,
         "ativo":      True,
@@ -187,7 +187,7 @@ def criar_usuario(body: UsuarioCreate, current: dict = Depends(require_admin)):
         raise HTTPException(status_code=500, detail="Erro ao criar usuário")
 
     u = res.data[0]
-    return {"id": u["id"], "nome": u["nome"], "email": u["email"], "role": u["role"]}
+    return {"id": u["id"], "nome": u["nome"], "username": u["username"], "role": u["role"]}
 
 
 @router.put("/usuarios/{usuario_id}")
