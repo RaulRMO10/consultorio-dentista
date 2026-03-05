@@ -19,3 +19,4 @@ streamlit>=1.41.0
 # Utils
 python-dateutil==2.8.2
 requests==2.31.0
+postgrest>=0.13.0
