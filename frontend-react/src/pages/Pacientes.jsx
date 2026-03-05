@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
 import { PacienteForm } from '../components/ui/PacienteForm';
+import { formatDateBR } from '../utils/date';
 
 const Pacientes = () => {
     const [pacientes, setPacientes] = useState([]);
@@ -152,9 +153,7 @@ const Pacientes = () => {
                                             {paciente.email && <div className="text-xs text-slate-400 mt-0.5">{paciente.email}</div>}
                                         </td>
                                         <td className="p-4 text-sm text-slate-600 dark:text-slate-300">
-                                            {paciente.data_nascimento
-                                                ? new Date(paciente.data_nascimento).toLocaleDateString('pt-BR')
-                                                : '—'}
+                                            {formatDateBR(paciente.data_nascimento)}
                                         </td>
                                         <td className="p-4">
                                             {paciente.ativo ? (
