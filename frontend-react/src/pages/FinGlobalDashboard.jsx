@@ -205,14 +205,9 @@ const FinGlobalDashboard = () => {
                         <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
                             <Building2 className="text-teal-500" /> Operação da Clínica
                         </h3>
-                        <div className="flex gap-3">
-                            <button onClick={() => setIsLaunchModalOpen(true)} className="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-xl text-sm font-bold transition-colors">
-                                <TrendingDown size={16} /> Nova Despesa
-                            </button>
-                            <button onClick={() => setIsLaunchModalOpen(true)} className="flex items-center gap-2 bg-amber-50 hover:bg-amber-100 text-amber-700 px-4 py-2 rounded-xl text-sm font-bold transition-colors">
-                                <ArrowRightLeft size={16} /> Pagar Pró-labore
-                            </button>
-                        </div>
+                        <button onClick={() => setIsLaunchModalOpen(true)} className="flex items-center gap-2 bg-teal-500 hover:bg-teal-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-colors shadow-sm shadow-teal-500/30">
+                            <Plus size={16} /> Lançamentos
+                        </button>
                     </div>
 
                     <section className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -296,17 +291,9 @@ const FinGlobalDashboard = () => {
                         <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
                             <UserCircle className="text-indigo-500" /> Sua Vida Financeira
                         </h3>
-                        <div className="flex gap-2 sm:gap-3 flex-wrap justify-end">
-                            <button onClick={() => setIsLaunchModalOpen(true)} className="flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition-colors">
-                                <Plus size={16} /> Receita Externa
-                            </button>
-                            <button onClick={() => setIsLaunchModalOpen(true)} className="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition-colors">
-                                <TrendingDown size={16} /> Gasto de Casa
-                            </button>
-                            <button onClick={() => setIsLaunchModalOpen(true)} className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition-colors">
-                                <ArrowRightLeft size={16} /> Aporte Clínica
-                            </button>
-                        </div>
+                        <button onClick={() => setIsLaunchModalOpen(true)} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-colors shadow-sm shadow-indigo-500/30">
+                            <Plus size={16} /> Lançamentos
+                        </button>
                     </div>
 
                     <section className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">

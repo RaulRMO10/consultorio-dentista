@@ -249,6 +249,352 @@ function NowLine() {
     );
 }
 
+// ─── Weekly View ───────────────────────────────────────────────────────────────
+const DIAS_SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+const DIAS_FULL = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+
+function getWeekDays(dateStr) {
+    const d = new Date(dateStr + 'T12:00:00');
+    const day = d.getDay(); // 0 = Sun
+    const monday = new Date(d);
+    monday.setDate(d.getDate() - ((day + 6) % 7)); // Segunda
+    return Array.from({ length: 7 }, (_, i) => {
+        const dt = new Date(monday);
+        dt.setDate(monday.getDate() + i);
+        return dt.toISOString().split('T')[0];
+    });
+}
+
+function WeeklyDashboard({ agendamentos: allAgendamentos, dentistas, onDayClick, currentDate }) {
+    const weekDays = getWeekDays(currentDate);
+    const today = new Date().toISOString().split('T')[0];
+
+    // ── Cross-filter states (Power BI style) ──
+    const [selDays, setSelDays] = React.useState(new Set());  // Set<dateStr>
+    const [selDentista, setSelDentista] = React.useState(null);        // dentista.id | null
+    const [selStatus, setSelStatus] = React.useState(null);        // status string | null
+    const [selKpi, setSelKpi] = React.useState(null);        // kpi key | null
+
+    const hasAnyFilter = selDays.size > 0 || selDentista || selStatus || selKpi;
+
+    // Toggle helpers
+    const toggleDay = (d) => setSelDays(prev => {
+        const next = new Set(prev);
+        next.has(d) ? next.delete(d) : next.add(d);
+        return next;
+    });
+    const toggleDentista = (id) => setSelDentista(p => p === id ? null : id);
+    const toggleStatus = (s) => setSelStatus(p => p === s ? null : s);
+
+    // ── Full week pool ──
+    const weekAll = allAgendamentos.filter(a => weekDays.some(d => a.data_hora?.startsWith(d)));
+
+    // ── KPI config (no filter applied to kpis themselves) ──
+    const KPI_DEFS = [
+        {
+            key: 'todos', label: 'Total', color: '#6366f1', bg: 'linear-gradient(135deg,#eef2ff,#f5f3ff)', icon: '📋',
+            fn: a => a.status !== 'cancelado'
+        },
+        {
+            key: 'confirmados', label: 'Confirmadas', color: '#3b82f6', bg: 'linear-gradient(135deg,#eff6ff,#dbeafe)', icon: '✅',
+            fn: a => ['confirmado', 'em_atendimento'].includes(a.status)
+        },
+        {
+            key: 'concluidos', label: 'Concluídas', color: '#22c55e', bg: 'linear-gradient(135deg,#f0fdf4,#dcfce7)', icon: '🏁',
+            fn: a => a.status === 'concluido'
+        },
+        {
+            key: 'faltas', label: 'Faltas', color: '#f43f5e', bg: 'linear-gradient(135deg,#fff1f2,#ffe4e6)', icon: '❌',
+            fn: a => a.status === 'falta'
+        },
+        {
+            key: 'cancelados', label: 'Canceladas', color: '#94a3b8', bg: 'linear-gradient(135deg,#f8fafc,#f1f5f9)', icon: '🚫',
+            fn: a => a.status === 'cancelado'
+        },
+    ];
+
+    // ── Apply all filters cross-combined ──
+    const applyFilters = (list, excludeKpi = false, excludeDay = false, excludeDentista = false, excludeStatus = false) => {
+        let r = list;
+        if (!excludeKpi && selKpi) r = r.filter(KPI_DEFS.find(k => k.key === selKpi)?.fn || (() => true));
+        if (!excludeDay && selDays.size) r = r.filter(a => selDays.has(a.data_hora?.split('T')[0]));
+        if (!excludeDentista && selDentista) r = r.filter(a => a.dentista_id === selDentista);
+        if (!excludeStatus && selStatus) r = r.filter(a => a.status === selStatus);
+        return r;
+    };
+
+    // Main filtered list (all filters applied)
+    const listaOrdenada = applyFilters(weekAll).sort((a, b) => a.data_hora.localeCompare(b.data_hora));
+
+    // KPI counts: apply all filters EXCEPT the kpi filter itself (so you see counts relative to other filters)
+    const kpiCounts = KPI_DEFS.map(k => ({
+        ...k,
+        value: applyFilters(weekAll.filter(k.fn), true),
+    }));
+
+    // Ocupação por dia: apply all filters EXCEPT day filter (so bars show cross-filtered totals per day)
+    const listExcDay = applyFilters(weekAll, false, true);
+    const maxDia = Math.max(...weekDays.map(d => listExcDay.filter(a => a.data_hora?.startsWith(d)).length), 1);
+
+    // Dentistas: apply all filters EXCEPT dentista filter
+    const listExcDen = applyFilters(weekAll, false, false, true);
+    const dentistasRank = dentistas.map((den, i) => ({
+        ...den,
+        count: listExcDen.filter(a => a.dentista_id === den.id).length,
+        accent: DENTIST_COLORS[i % DENTIST_COLORS.length],
+    })).filter(d => d.count > 0).sort((a, b) => b.count - a.count);
+    const maxDenCount = Math.max(...dentistasRank.map(d => d.count), 1);
+
+    // Status pills: apply all filters EXCEPT status filter
+    const listExcSt = applyFilters(weekAll, false, false, false, true);
+    const statusCount = {};
+    listExcSt.forEach(a => { statusCount[a.status] = (statusCount[a.status] || 0) + 1; });
+
+    const clearAll = () => {
+        setSelDays(new Set()); setSelDentista(null); setSelStatus(null); setSelKpi(null);
+    };
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+            {/* ── Filter bar ── */}
+            {hasAnyFilter && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', background: 'linear-gradient(135deg,#eef2ff,#f5f3ff)', borderRadius: '12px', border: '1px solid #6366f130' }}>
+                    <span style={{ fontSize: '12px', color: '#6366f1', fontWeight: 700 }}>🔍 Filtrando:</span>
+                    {selKpi && <span style={{ fontSize: '11px', background: '#6366f1', color: 'white', borderRadius: '99px', padding: '3px 10px', fontWeight: 700 }}>{KPI_DEFS.find(k => k.key === selKpi)?.label}</span>}
+                    {selDays.size > 0 && <span style={{ fontSize: '11px', background: '#6366f1', color: 'white', borderRadius: '99px', padding: '3px 10px', fontWeight: 700 }}>{selDays.size} dia{selDays.size > 1 ? 's' : ''}</span>}
+                    {selDentista && <span style={{ fontSize: '11px', background: '#6366f1', color: 'white', borderRadius: '99px', padding: '3px 10px', fontWeight: 700 }}>{dentistas.find(d => d.id === selDentista)?.nome?.split(' ')[0]}</span>}
+                    {selStatus && <span style={{ fontSize: '11px', background: '#6366f1', color: 'white', borderRadius: '99px', padding: '3px 10px', fontWeight: 700 }}>{getStatus(selStatus).label}</span>}
+                    <button onClick={clearAll} style={{ marginLeft: 'auto', fontSize: '11px', fontWeight: 700, color: '#6366f1', background: 'white', border: '1px solid #6366f1', borderRadius: '99px', padding: '3px 12px', cursor: 'pointer' }}>✕ Limpar</button>
+                </div>
+            )}
+
+            {/* ── KPIs ── */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '16px' }}>
+                {kpiCounts.map(k => {
+                    const isActive = selKpi === k.key;
+                    const cnt = k.value.length;
+                    return (
+                        <div
+                            key={k.key}
+                            onClick={() => { toggleStatus(null); setSelKpi(isActive ? null : k.key); }}
+                            style={{
+                                background: k.bg, borderRadius: '18px', padding: '18px 20px',
+                                border: isActive ? `2px solid ${k.color}` : `1px solid ${k.color}22`,
+                                cursor: 'pointer', position: 'relative',
+                                transform: isActive ? 'translateY(-3px)' : 'none',
+                                boxShadow: isActive ? `0 8px 24px ${k.color}35` : '0 1px 4px rgba(0,0,0,0.04)',
+                                transition: 'all 0.18s ease',
+                                opacity: selKpi && !isActive ? 0.55 : 1,
+                            }}
+                        >
+                            {isActive && <div style={{ position: 'absolute', top: '8px', right: '10px', fontSize: '9px', fontWeight: 800, color: 'white', background: k.color, borderRadius: '99px', padding: '2px 7px' }}>ativo</div>}
+                            <div style={{ fontSize: '20px', marginBottom: '6px' }}>{k.icon}</div>
+                            <div style={{ fontSize: '30px', fontWeight: 900, color: k.color, lineHeight: 1 }}>{cnt}</div>
+                            <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', marginTop: '5px' }}>{k.label}</div>
+                        </div>
+                    );
+                })}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+
+                {/* ── Ocupação por Dia ── */}
+                <div style={{ background: 'white', borderRadius: '18px', border: '1px solid #e2e8f0', padding: '22px', boxShadow: '0 2px 12px rgba(0,0,0,0.05)' }}>
+                    <h3 style={{ fontSize: '14px', fontWeight: 800, color: '#1e293b', margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        📊 Ocupação por Dia
+                        <span style={{ fontSize: '10px', fontWeight: 500, color: '#94a3b8', marginLeft: 'auto' }}>clique para filtrar</span>
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {weekDays.map(dateStr => {
+                            const d = new Date(dateStr + 'T12:00:00');
+                            const cnt = listExcDay.filter(a => a.data_hora?.startsWith(dateStr)).length;
+                            const isToday = dateStr === today;
+                            const isSel = selDays.has(dateStr);
+                            const pct = maxDia > 0 ? (cnt / maxDia) * 100 : 0;
+                            return (
+                                <div
+                                    key={dateStr}
+                                    onClick={() => toggleDay(dateStr)}
+                                    style={{
+                                        cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px',
+                                        padding: '4px 6px', borderRadius: '8px',
+                                        background: isSel ? '#eef2ff' : 'transparent',
+                                        outline: isSel ? '1.5px solid #6366f1' : 'none',
+                                        transition: 'all 0.15s',
+                                        opacity: selDays.size > 0 && !isSel ? 0.45 : 1,
+                                    }}
+                                >
+                                    <span style={{ fontSize: '11px', fontWeight: 800, color: isSel ? '#6366f1' : isToday ? '#6366f1' : '#64748b', width: '40px', flexShrink: 0 }}>
+                                        {DIAS_SEMANA[d.getDay()]} {d.getDate()}
+                                    </span>
+                                    <div style={{ flex: 1, height: '10px', background: '#f1f5f9', borderRadius: '99px', overflow: 'hidden' }}>
+                                        <div style={{
+                                            height: '100%', borderRadius: '99px', width: `${pct}%`,
+                                            background: isSel ? 'linear-gradient(90deg,#6366f1,#8b5cf6)' : isToday ? 'linear-gradient(90deg,#6366f180,#8b5cf680)' : 'linear-gradient(90deg,#94a3b8,#cbd5e1)',
+                                            transition: 'width 0.45s ease',
+                                        }} />
+                                    </div>
+                                    <span style={{ fontSize: '11px', fontWeight: 800, color: isSel ? '#6366f1' : cnt > 0 ? '#1e293b' : '#cbd5e1', width: '20px', textAlign: 'right', flexShrink: 0 }}>
+                                        {cnt}
+                                    </span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* ── Por Dentista + Status ── */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+                    {/* Dentistas */}
+                    <div style={{ background: 'white', borderRadius: '18px', border: '1px solid #e2e8f0', padding: '22px', boxShadow: '0 2px 12px rgba(0,0,0,0.05)', flex: 1 }}>
+                        <h3 style={{ fontSize: '14px', fontWeight: 800, color: '#1e293b', margin: '0 0 14px', display: 'flex', alignItems: 'center' }}>
+                            🦷 Por Dentista
+                            <span style={{ fontSize: '10px', fontWeight: 500, color: '#94a3b8', marginLeft: 'auto' }}>clique para filtrar</span>
+                        </h3>
+                        {dentistasRank.length === 0 ? (
+                            <p style={{ fontSize: '13px', color: '#94a3b8' }}>Nenhum resultado.</p>
+                        ) : dentistasRank.map(den => {
+                            const isSel = selDentista === den.id;
+                            const pct = maxDenCount > 0 ? (den.count / maxDenCount) * 100 : 0;
+                            return (
+                                <div
+                                    key={den.id}
+                                    onClick={() => toggleDentista(den.id)}
+                                    style={{
+                                        marginBottom: '10px', cursor: 'pointer', padding: '6px 8px', borderRadius: '10px',
+                                        background: isSel ? `${den.accent}12` : 'transparent',
+                                        outline: isSel ? `1.5px solid ${den.accent}` : 'none',
+                                        transition: 'all 0.15s',
+                                        opacity: selDentista && !isSel ? 0.4 : 1,
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                                        <span style={{ fontSize: '12px', fontWeight: 700, color: isSel ? den.accent : '#334155' }}>
+                                            {den.nome.split(' ').slice(0, 2).join(' ')}
+                                        </span>
+                                        <span style={{ fontSize: '12px', fontWeight: 800, color: den.accent }}>
+                                            {den.count} consulta{den.count > 1 ? 's' : ''}
+                                        </span>
+                                    </div>
+                                    <div style={{ height: '6px', background: '#f1f5f9', borderRadius: '99px', overflow: 'hidden' }}>
+                                        <div style={{ height: '100%', width: `${pct}%`, background: isSel ? den.accent : `${den.accent}88`, borderRadius: '99px', transition: 'width 0.45s ease' }} />
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {/* Status pills */}
+                    <div style={{ background: 'white', borderRadius: '18px', border: '1px solid #e2e8f0', padding: '22px', boxShadow: '0 2px 12px rgba(0,0,0,0.05)' }}>
+                        <h3 style={{ fontSize: '14px', fontWeight: 800, color: '#1e293b', margin: '0 0 12px', display: 'flex', alignItems: 'center' }}>
+                            📌 Por Status
+                            <span style={{ fontSize: '10px', fontWeight: 500, color: '#94a3b8', marginLeft: 'auto' }}>clique para filtrar</span>
+                        </h3>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                            {Object.entries(statusCount).map(([st, cnt]) => {
+                                const s = getStatus(st);
+                                const isSel = selStatus === st;
+                                return (
+                                    <div
+                                        key={st}
+                                        onClick={() => { setSelKpi(null); toggleStatus(st); }}
+                                        style={{
+                                            display: 'flex', alignItems: 'center', gap: '6px',
+                                            background: isSel ? s.border + '22' : s.bg,
+                                            borderRadius: '99px', padding: '6px 14px',
+                                            border: isSel ? `2px solid ${s.border}` : `1px solid ${s.border}44`,
+                                            cursor: 'pointer',
+                                            transform: isSel ? 'scale(1.06)' : 'scale(1)',
+                                            boxShadow: isSel ? `0 4px 12px ${s.border}30` : 'none',
+                                            transition: 'all 0.15s',
+                                            opacity: selStatus && !isSel ? 0.4 : 1,
+                                        }}
+                                    >
+                                        <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: s.dot, flexShrink: 0 }} />
+                                        <span style={{ fontSize: '11px', fontWeight: 700, color: s.text }}>{s.label}</span>
+                                        <span style={{ fontSize: '13px', fontWeight: 900, color: s.badge }}>{cnt}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* ── Lista da Semana ── */}
+            <div style={{ background: 'white', borderRadius: '18px', border: '1px solid #e2e8f0', boxShadow: '0 2px 12px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
+                <div style={{ padding: '16px 22px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3 style={{ fontSize: '14px', fontWeight: 800, color: '#1e293b', margin: 0 }}>
+                        🗓️ Consultas {hasAnyFilter ? 'Filtradas' : 'da Semana'}
+                        <span style={{ marginLeft: '8px', fontSize: '12px', fontWeight: 700, color: '#6366f1', background: '#eef2ff', borderRadius: '99px', padding: '2px 10px' }}>{listaOrdenada.length}</span>
+                    </h3>
+                    {hasAnyFilter ? (
+                        <button onClick={clearAll} style={{ fontSize: '11px', fontWeight: 700, color: '#6366f1', background: '#eef2ff', border: '1px solid #6366f130', borderRadius: '99px', padding: '4px 12px', cursor: 'pointer' }}>✕ Limpar filtros</button>
+                    ) : (
+                        <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 500 }}>Clique nos painéis para filtrar</span>
+                    )}
+                </div>
+                {listaOrdenada.length === 0 ? (
+                    <div style={{ padding: '40px', textAlign: 'center', color: '#cbd5e1' }}>
+                        <div style={{ fontSize: '32px', marginBottom: '8px' }}>📭</div>
+                        <p style={{ fontSize: '14px', fontWeight: 600 }}>Nenhuma consulta encontrada</p>
+                        {hasAnyFilter && <button onClick={clearAll} style={{ marginTop: '8px', fontSize: '12px', color: '#6366f1', fontWeight: 700, background: 'none', border: '1px solid #6366f1', borderRadius: '99px', padding: '5px 16px', cursor: 'pointer' }}>Limpar filtros</button>}
+                    </div>
+                ) : (
+                    <div>
+                        {listaOrdenada.map((ag, idx) => {
+                            const st = getStatus(ag.status);
+                            const dh = new Date(ag.data_hora);
+                            const dateStr = ag.data_hora.split('T')[0];
+                            const den = dentistas.find(d => d.id === ag.dentista_id);
+                            const denIdx = dentistas.findIndex(d => d.id === ag.dentista_id);
+                            const accent = DENTIST_COLORS[denIdx % DENTIST_COLORS.length];
+                            const isToday = dateStr === today;
+                            return (
+                                <div
+                                    key={ag.id}
+                                    onClick={() => onDayClick(dateStr)}
+                                    style={{
+                                        display: 'flex', alignItems: 'center', gap: '16px',
+                                        padding: '11px 22px', cursor: 'pointer',
+                                        borderBottom: idx < listaOrdenada.length - 1 ? '1px solid #f8fafc' : 'none',
+                                        background: isToday ? '#fefce8' : 'white',
+                                        transition: 'background 0.12s',
+                                    }}
+                                    onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
+                                    onMouseLeave={e => e.currentTarget.style.background = isToday ? '#fefce8' : 'white'}
+                                >
+                                    <div style={{ textAlign: 'center', minWidth: '44px', flexShrink: 0 }}>
+                                        <div style={{ fontSize: '9px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>{DIAS_SEMANA[dh.getDay()]}</div>
+                                        <div style={{ fontSize: '17px', fontWeight: 900, color: isToday ? '#6366f1' : '#1e293b', lineHeight: 1.1 }}>{dh.getDate()}</div>
+                                    </div>
+                                    <div style={{ width: '3px', height: '34px', borderRadius: '9px', background: st.border, flexShrink: 0 }} />
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontSize: '13px', fontWeight: 800, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            {ag.pacientes?.nome || 'Paciente'}
+                                        </div>
+                                        <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '1px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <span>{dh.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+                                            {den && <><span style={{ width: '3px', height: '3px', borderRadius: '50%', background: accent, display: 'inline-block' }} /><span>{den.nome.split(' ')[0]}</span></>}
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', background: st.bg, borderRadius: '99px', padding: '4px 10px', border: `1px solid ${st.border}44`, flexShrink: 0 }}>
+                                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: st.dot }} />
+                                        <span style={{ fontSize: '10px', fontWeight: 700, color: st.badge }}>{st.label}</span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 const Agendamentos = () => {
     const [agendamentos, setAgendamentos] = useState([]);
@@ -256,6 +602,7 @@ const Agendamentos = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]);
+    const [viewMode, setViewMode] = useState('dia'); // 'dia' | 'semana'
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedAgendamento, setSelectedAgendamento] = useState(null);
     const [deleteModalConfig, setDeleteModalConfig] = useState({ isOpen: false, agendamentoId: null });
@@ -351,13 +698,27 @@ const Agendamentos = () => {
         scheduleSave(agend.id, newDataHora, targetDentistaId);
     };
 
+    // Navigation helpers
     const navigateDate = (days) => {
         const d = new Date(filterDate + 'T12:00:00');
         d.setDate(d.getDate() + days);
         setFilterDate(d.toISOString().split('T')[0]);
     };
+    const navigateWeek = (direction) => navigateDate(direction * 7);
+
+    const handleDayClick = (dateStr) => {
+        setFilterDate(dateStr);
+        setViewMode('dia');
+    };
+
+    // Label for week range
+    const weekDays = getWeekDays(filterDate);
+    const weekStart = new Date(weekDays[0] + 'T12:00:00');
+    const weekEnd = new Date(weekDays[6] + 'T12:00:00');
+    const weekLabel = `${weekStart.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} – ${weekEnd.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}`;
 
     const totalHours = END_HOUR - START_HOUR;
+
 
     return (
         <div style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif", width: '100%', paddingBottom: '48px' }}>
@@ -401,121 +762,160 @@ const Agendamentos = () => {
 
             {/* ── Toolbar ── */}
             <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', background: 'white', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '10px 16px', boxShadow: '0 1px 8px rgba(0,0,0,0.05)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>Data:</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    {/* Toggle Dia/Semana */}
+                    <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: '10px', padding: '3px', gap: '2px' }}>
+                        {['dia', 'semana'].map(m => (
+                            <button
+                                key={m}
+                                onClick={() => setViewMode(m)}
+                                style={{
+                                    padding: '5px 14px', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+                                    background: viewMode === m ? 'white' : 'transparent',
+                                    color: viewMode === m ? '#6366f1' : '#64748b',
+                                    boxShadow: viewMode === m ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+                                    transition: 'all 0.15s',
+                                    textTransform: 'capitalize',
+                                }}
+                            >{m === 'dia' ? '📅 Dia' : '📆 Semana'}</button>
+                        ))}
+                    </div>
+
+                    {/* Navegação */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '2px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0', padding: '3px' }}>
-                        <button onClick={() => navigateDate(-1)} style={{ padding: '5px 8px', border: 'none', background: 'none', cursor: 'pointer', color: '#64748b', borderRadius: '8px', display: 'flex', alignItems: 'center', transition: 'background 0.15s' }}
-                            onMouseEnter={e => e.currentTarget.style.background = '#e2e8f0'} onMouseLeave={e => e.currentTarget.style.background = 'none'}>
-                            <ChevronLeft size={15} />
-                        </button>
-                        <input
-                            type="date" value={filterDate}
-                            onChange={e => setFilterDate(e.target.value)}
-                            style={{ border: 'none', background: 'none', fontSize: '13px', fontWeight: 700, color: '#1e293b', cursor: 'pointer', outline: 'none', textAlign: 'center', padding: '0 4px' }}
-                        />
-                        <button onClick={() => navigateDate(1)} style={{ padding: '5px 8px', border: 'none', background: 'none', cursor: 'pointer', color: '#64748b', borderRadius: '8px', display: 'flex', alignItems: 'center', transition: 'background 0.15s' }}
-                            onMouseEnter={e => e.currentTarget.style.background = '#e2e8f0'} onMouseLeave={e => e.currentTarget.style.background = 'none'}>
-                            <ChevronRight size={15} />
-                        </button>
+                        <button
+                            onClick={() => viewMode === 'dia' ? navigateDate(-1) : navigateWeek(-1)}
+                            style={{ padding: '5px 8px', border: 'none', background: 'none', cursor: 'pointer', color: '#64748b', borderRadius: '8px', display: 'flex', alignItems: 'center', transition: 'background 0.15s' }}
+                            onMouseEnter={e => e.currentTarget.style.background = '#e2e8f0'} onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                        ><ChevronLeft size={15} /></button>
+
+                        {viewMode === 'dia' ? (
+                            <input
+                                type="date" value={filterDate}
+                                onChange={e => setFilterDate(e.target.value)}
+                                style={{ border: 'none', background: 'none', fontSize: '13px', fontWeight: 700, color: '#1e293b', cursor: 'pointer', outline: 'none', textAlign: 'center', padding: '0 4px' }}
+                            />
+                        ) : (
+                            <span style={{ fontSize: '12px', fontWeight: 700, color: '#1e293b', padding: '0 8px', minWidth: '160px', textAlign: 'center' }}>
+                                {weekLabel}
+                            </span>
+                        )}
+
+                        <button
+                            onClick={() => viewMode === 'dia' ? navigateDate(1) : navigateWeek(1)}
+                            style={{ padding: '5px 8px', border: 'none', background: 'none', cursor: 'pointer', color: '#64748b', borderRadius: '8px', display: 'flex', alignItems: 'center', transition: 'background 0.15s' }}
+                            onMouseEnter={e => e.currentTarget.style.background = '#e2e8f0'} onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                        ><ChevronRight size={15} /></button>
                     </div>
                 </div>
+
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#6366f1' }} />
                     <span style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>
                         {filteredAgendamentos.length} consulta{filteredAgendamentos.length !== 1 ? 's' : ''}
+                        {viewMode === 'semana' && ` na semana`}
                     </span>
                 </div>
             </div>
 
-            {/* ── Calendar ── */}
-            <div style={{ background: 'white', borderRadius: '20px', border: '1px solid #e2e8f0', boxShadow: '0 4px 32px rgba(0,0,0,0.06)', overflow: 'hidden', display: 'flex' }}>
+            {/* ── View Semanal ── */}
+            {viewMode === 'semana' && (
+                <WeeklyDashboard
+                    agendamentos={agendamentos}
+                    dentistas={dentistas}
+                    onDayClick={handleDayClick}
+                    currentDate={filterDate}
+                />
+            )}
 
-                {/* Time axis */}
-                <div style={{ width: '52px', flexShrink: 0, borderRight: '1px solid #f1f5f9', background: '#fafbff', position: 'relative', paddingTop: '52px' }}>
-                    {Array.from({ length: totalHours }).map((_, i) => {
-                        const h = START_HOUR + i;
-                        return (
-                            <React.Fragment key={h}>
-                                <div style={{ position: 'absolute', top: `${52 + i * 60 * PX_PER_MIN}px`, right: '8px', transform: 'translateY(-50%)', fontSize: '10px', fontWeight: 700, color: h === new Date().getHours() ? '#6366f1' : '#94a3b8', userSelect: 'none' }}>
-                                    {String(h).padStart(2, '0')}:00
-                                </div>
-                                <div style={{ position: 'absolute', top: `${52 + (i * 60 + 30) * PX_PER_MIN}px`, right: '10px', transform: 'translateY(-50%)', fontSize: '9px', fontWeight: 500, color: '#cbd5e1', userSelect: 'none' }}>
-                                    :30
-                                </div>
-                            </React.Fragment>
-                        );
-                    })}
-                </div>
+            {/* ── Calendar Diário ── */}
+            {viewMode === 'dia' && (
+                <div style={{ background: 'white', borderRadius: '20px', border: '1px solid #e2e8f0', boxShadow: '0 4px 32px rgba(0,0,0,0.06)', overflow: 'hidden', display: 'flex' }}>
+                    {/* Time axis */}
+                    <div style={{ width: '52px', flexShrink: 0, borderRight: '1px solid #f1f5f9', background: '#fafbff', position: 'relative', paddingTop: '52px' }}>
+                        {Array.from({ length: totalHours }).map((_, i) => {
+                            const h = START_HOUR + i;
+                            return (
+                                <React.Fragment key={h}>
+                                    <div style={{ position: 'absolute', top: `${52 + i * 60 * PX_PER_MIN}px`, right: '8px', transform: 'translateY(-50%)', fontSize: '10px', fontWeight: 700, color: h === new Date().getHours() ? '#6366f1' : '#94a3b8', userSelect: 'none' }}>
+                                        {String(h).padStart(2, '0')}:00
+                                    </div>
+                                    <div style={{ position: 'absolute', top: `${52 + (i * 60 + 30) * PX_PER_MIN}px`, right: '10px', transform: 'translateY(-50%)', fontSize: '9px', fontWeight: 500, color: '#cbd5e1', userSelect: 'none' }}>
+                                        :30
+                                    </div>
+                                </React.Fragment>
+                            );
+                        })}
+                    </div>
 
-                {/* DnD Canvas */}
-                <div style={{ flex: 1, overflowX: 'auto', overflowY: 'hidden' }}>
-                    {loading && dentistas.length === 0 ? (
-                        <div style={{ display: 'flex', justifyContent: 'center', padding: '80px' }}>
-                            <div style={{ width: '36px', height: '36px', borderRadius: '50%', border: '3px solid #f1f5f9', borderTopColor: '#6366f1', animation: 'spin 0.8s linear infinite' }} />
-                        </div>
-                    ) : (
-                        <DndContext sensors={sensors} collisionDetection={rectIntersection} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-                            <div style={{ display: 'flex', minWidth: 'max-content' }}>
-                                {dentistas.map((dentista, idx) => {
-                                    const accent = DENTIST_COLORS[idx % DENTIST_COLORS.length];
-                                    const dAgends = filteredAgendamentos.filter(a => a.dentista_id === dentista.id);
-                                    return (
-                                        <div key={dentista.id} style={{ width: '280px', flexShrink: 0, borderRight: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column' }}>
-                                            {/* Column Header */}
-                                            <div style={{
-                                                height: '52px', borderBottom: '1px solid #f1f5f9',
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                                                background: `linear-gradient(to bottom, ${accent}12, white)`,
-                                                position: 'sticky', top: 0, zIndex: 20, backdropFilter: 'blur(8px)',
-                                            }}>
-                                                <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: `${accent}22`, border: `2px solid ${accent}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                    <Stethoscope size={13} color={accent} />
-                                                </div>
-                                                <span style={{ fontWeight: 800, fontSize: '12px', color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '180px' }}>
-                                                    {dentista.nome}
-                                                </span>
-                                            </div>
-
-                                            {/* Droppable */}
-                                            <DroppableColumn id={dentista.id} totalHeight={totalGridHeight}>
-                                                {/* Grid lines */}
-                                                {Array.from({ length: totalHours * 4 }).map((_, i) => (
-                                                    <div key={i} style={{
-                                                        position: 'absolute', width: '100%',
-                                                        top: `${i * SLOT_MIN * PX_PER_MIN}px`,
-                                                        borderTop: i % 4 === 0
-                                                            ? '1px solid #f1f5f9'
-                                                            : '1px dashed #f8fafc',
-                                                        zIndex: 0, pointerEvents: 'none',
-                                                    }} />
-                                                ))}
-                                                <NowLine />
-                                                {dAgends.map(ag => (
-                                                    <AppointmentCard
-                                                        key={ag.id}
-                                                        agend={ag}
-                                                        onDelete={handleDelete}
-                                                        onEdit={handleOpenModal}
-                                                        isDragging={activeAgend?.id === ag.id}
-                                                        colorAccent={accent}
-                                                    />
-                                                ))}
-                                            </DroppableColumn>
-                                        </div>
-                                    );
-                                })}
-                                {dentistas.length < 3 && (
-                                    <div style={{ flex: 1, minWidth: '100px', background: '#fafbff' }} />
-                                )}
+                    {/* DnD Canvas */}
+                    <div style={{ flex: 1, overflowX: 'auto', overflowY: 'hidden' }}>
+                        {loading && dentistas.length === 0 ? (
+                            <div style={{ display: 'flex', justifyContent: 'center', padding: '80px' }}>
+                                <div style={{ width: '36px', height: '36px', borderRadius: '50%', border: '3px solid #f1f5f9', borderTopColor: '#6366f1', animation: 'spin 0.8s linear infinite' }} />
                             </div>
+                        ) : (
+                            <DndContext sensors={sensors} collisionDetection={rectIntersection} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+                                <div style={{ display: 'flex', minWidth: 'max-content' }}>
+                                    {dentistas.map((dentista, idx) => {
+                                        const accent = DENTIST_COLORS[idx % DENTIST_COLORS.length];
+                                        const dAgends = filteredAgendamentos.filter(a => a.dentista_id === dentista.id);
+                                        return (
+                                            <div key={dentista.id} style={{ width: '280px', flexShrink: 0, borderRight: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column' }}>
+                                                {/* Column Header */}
+                                                <div style={{
+                                                    height: '52px', borderBottom: '1px solid #f1f5f9',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                                                    background: `linear-gradient(to bottom, ${accent}12, white)`,
+                                                    position: 'sticky', top: 0, zIndex: 20, backdropFilter: 'blur(8px)',
+                                                }}>
+                                                    <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: `${accent}22`, border: `2px solid ${accent}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                        <Stethoscope size={13} color={accent} />
+                                                    </div>
+                                                    <span style={{ fontWeight: 800, fontSize: '12px', color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '180px' }}>
+                                                        {dentista.nome}
+                                                    </span>
+                                                </div>
 
-                            <DragOverlay dropAnimation={null}>
-                                {activeAgend ? <OverlayCard agend={activeAgend} /> : null}
-                            </DragOverlay>
-                        </DndContext>
-                    )}
+                                                {/* Droppable */}
+                                                <DroppableColumn id={dentista.id} totalHeight={totalGridHeight}>
+                                                    {/* Grid lines */}
+                                                    {Array.from({ length: totalHours * 4 }).map((_, i) => (
+                                                        <div key={i} style={{
+                                                            position: 'absolute', width: '100%',
+                                                            top: `${i * SLOT_MIN * PX_PER_MIN}px`,
+                                                            borderTop: i % 4 === 0 ? '1px solid #f1f5f9' : '1px dashed #f8fafc',
+                                                            zIndex: 0, pointerEvents: 'none',
+                                                        }} />
+                                                    ))}
+                                                    <NowLine />
+                                                    {dAgends.map(ag => (
+                                                        <AppointmentCard
+                                                            key={ag.id}
+                                                            agend={ag}
+                                                            onDelete={handleDelete}
+                                                            onEdit={handleOpenModal}
+                                                            isDragging={activeAgend?.id === ag.id}
+                                                            colorAccent={accent}
+                                                        />
+                                                    ))}
+                                                </DroppableColumn>
+                                            </div>
+                                        );
+                                    })}
+                                    {dentistas.length < 3 && (
+                                        <div style={{ flex: 1, minWidth: '100px', background: '#fafbff' }} />
+                                    )}
+                                </div>
+
+                                <DragOverlay dropAnimation={null}>
+                                    {activeAgend ? <OverlayCard agend={activeAgend} /> : null}
+                                </DragOverlay>
+                            </DndContext>
+                        )}
+                    </div>
                 </div>
-            </div>
+            )}
 
             <style>{`
                 @keyframes spin { to { transform: rotate(360deg); } }

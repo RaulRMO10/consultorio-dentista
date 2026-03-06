@@ -11,7 +11,8 @@ import {
     FaBuildingColumns,
     FaUserShield,
     FaArrowRightFromBracket,
-    FaLock
+    FaLock,
+    FaGear
 } from 'react-icons/fa6';
 
 const Sidebar = () => {
@@ -46,6 +47,7 @@ const Sidebar = () => {
         { name: 'Procedimentos', path: '/procedimentos', icon: FaClipboardList },
         { name: 'Faturamentos', path: '/faturamentos', icon: FaMoneyCheckDollar },
         { name: 'Financeiro', path: '/financeiro', icon: FaBuildingColumns },
+        { name: 'Configurações', path: '/configuracoes', icon: FaGear },
     ];
 
     if (userRole === 'admin') {

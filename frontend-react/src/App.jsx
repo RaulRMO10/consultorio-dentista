@@ -11,6 +11,7 @@ import Procedimentos from './pages/Procedimentos';
 import Faturamentos from './pages/Faturamentos';
 import FinGlobalDashboard from './pages/FinGlobalDashboard';
 import Usuarios from './pages/Usuarios';
+import ConfiguracoesFinanceiras from './pages/ConfiguracoesFinanceiras';
 import { useAuthSession } from './hooks/useAuthSession';
 
 // Mock Auth Guard
@@ -74,6 +75,7 @@ function App() {
         <Route path="/procedimentos" element={<PrivateRoute><Shell><Procedimentos /></Shell></PrivateRoute>} />
         <Route path="/faturamentos" element={<PrivateRoute><Shell><Faturamentos /></Shell></PrivateRoute>} />
         <Route path="/financeiro" element={<PrivateRoute><Shell><FinGlobalDashboard /></Shell></PrivateRoute>} />
+        <Route path="/configuracoes" element={<PrivateRoute><Shell><ConfiguracoesFinanceiras /></Shell></PrivateRoute>} />
         <Route path="/usuarios" element={<AdminRoute><Shell><Usuarios /></Shell></AdminRoute>} />
 
         <Route path="*" element={<Navigate to="/" />} />
