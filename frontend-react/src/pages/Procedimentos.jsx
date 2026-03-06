@@ -9,6 +9,7 @@ const Procedimentos = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [mostrarInativos, setMostrarInativos] = useState(false);
 
     // Modal States
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -17,7 +18,10 @@ const Procedimentos = () => {
     const fetchProcedimentos = async () => {
         try {
             setLoading(true);
-            const response = await api.get('/api/procedimentos', { params: { ativo: true } });
+            const params = {};
+            if (!mostrarInativos) params.ativo = true;
+
+            const response = await api.get('/api/procedimentos', { params });
             setProcedimentos(response.data);
         } catch (err) {
             setError('Falha ao carregar a lista de procedimentos.');
@@ -29,7 +33,7 @@ const Procedimentos = () => {
 
     useEffect(() => {
         fetchProcedimentos();
-    }, []);
+    }, [mostrarInativos]);
 
     // Handlers
     const handleOpenModal = (procedimento = null) => {
@@ -108,8 +112,19 @@ const Procedimentos = () => {
                             className="block w-full pl-10 pr-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 bg-white dark:bg-slate-900 text-slate-900 dark:text-white transition-all text-sm"
                         />
                     </div>
-                    <div className="text-sm text-slate-500 dark:text-slate-400 font-medium font-medium px-4">
-                        {filteredProcedimentos.length} procedimentos base
+                    <div className="flex items-center gap-4">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={mostrarInativos}
+                                onChange={(e) => setMostrarInativos(e.target.checked)}
+                                className="w-4 h-4 text-amber-500 rounded focus:ring-amber-500 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800"
+                            />
+                            <span className="text-sm text-slate-600 dark:text-slate-300 font-medium">Mostrar inativos</span>
+                        </label>
+                        <div className="text-sm text-slate-500 dark:text-slate-400 font-medium px-4 border-l border-slate-200 dark:border-slate-700">
+                            {filteredProcedimentos.length} procedimentos
+                        </div>
                     </div>
                 </div>
 
