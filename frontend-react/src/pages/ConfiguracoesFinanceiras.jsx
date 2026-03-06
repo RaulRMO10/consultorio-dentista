@@ -8,7 +8,6 @@ import { Input } from '../components/ui/Input';
 const TABS_CATEGORIAS = [
     { id: 'RECEITAS_PESSOAIS', label: 'Receitas Pessoais', tipo: 'RECEITA', escopo: 'PESSOAL', icon: Plus, color: 'text-indigo-600', bg: 'bg-indigo-50' },
     { id: 'DESPESAS_PESSOAIS', label: 'Despesas Pessoais', tipo: 'DESPESA', escopo: 'PESSOAL', icon: TrendingDown, color: 'text-red-500', bg: 'bg-red-50' },
-    { id: 'RECEITAS_CLINICA', label: 'Receitas Clínica', tipo: 'RECEITA', escopo: 'CLINICA', icon: Plus, color: 'text-teal-600', bg: 'bg-teal-50' },
     { id: 'DESPESAS_CLINICA', label: 'Despesas Clínica', tipo: 'DESPESA', escopo: 'CLINICA', icon: TrendingDown, color: 'text-rose-600', bg: 'bg-rose-50' },
     { id: 'TRANSFERENCIAS', label: 'Transferências/Aportes', tipo: 'TRANSFERENCIA', escopo: 'GLOBAL', icon: ArrowRightLeft, color: 'text-slate-600', bg: 'bg-slate-100' },
 ];
