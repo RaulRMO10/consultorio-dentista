@@ -68,7 +68,8 @@ const FinGlobalDashboard = () => {
         if (!transacoes.length) return [];
         const map = {};
         transacoes.forEach(t => {
-            if (t.fin_categorias?.tipo === 'TRANSFERENCIA') return; // ignora transfers desse grafico
+            if (t.fin_categorias?.tipo === 'TRANSFERENCIA') return;
+            if (t.status !== 'PAGO') return; // ← Só conta o que já entrou/saiu de fato
             const data = new Date(t.data_vencimento).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
             if (!map[data]) map[data] = { date: data, Receitas: 0, Despesas: 0 };
 
@@ -77,6 +78,7 @@ const FinGlobalDashboard = () => {
         });
         return Object.values(map).sort((a, b) => a.date.localeCompare(b.date));
     }, [transacoes]);
+
 
     const despesasClinicaPorCategoria = useMemo(() => {
         const agrp = {};

@@ -2,7 +2,7 @@
 Rotas da API - Agendamentos
 """
 from fastapi import APIRouter, HTTPException, status
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pydantic import BaseModel
 from backend.config.supabase_client import get_supabase
 
@@ -118,6 +118,18 @@ def criar_agendamento(agendamento_data: AgendamentoCreate):
     if _verificar_conflito(dentista_id, start_dt, duracao):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Já existe um agendamento neste horário para este profissional.")
 
+    # Validar horário no passado (com tolerância de 1 slot de 15 minutos)
+    # Regra: se data_hora + 15min < agora, o slot já encerrou e não pode ser agendado
+    agora = datetime.now(timezone.utc)
+    data_hora_utc = agendamento_data.data_hora
+    if data_hora_utc.tzinfo is None:
+        data_hora_utc = data_hora_utc.replace(tzinfo=timezone.utc)
+    if data_hora_utc + timedelta(minutes=15) < agora:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Não é possível agendar para um horário que já passou. O slot de 15 minutos encerrou."
+        )
+
     
     # Remove empty strings to prevent postgres malformed UUID errors
     if dados.get("clin_tratamento_id") == "":
@@ -216,9 +228,34 @@ def atualizar_agendamento(agendamento_id: str, agendamento_data: AgendamentoUpda
 @router.delete("/{agendamento_id}", status_code=status.HTTP_204_NO_CONTENT)
 def deletar_agendamento(agendamento_id: str):
     sb = get_supabase()
+    
+    # Busca o agendamento atual com faturamentos
+    curr = sb.table("agendamentos").select("id, status, fin_faturamentos!left(id)").eq("id", agendamento_id).execute()
+    if not curr.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agendamento não encontrado")
+    
+    ag = curr.data[0]
+    
+    # Bloquear cancelamento de consultas já realizadas ou em curso
+    STATUS_PROTEGIDOS = ["concluido", "em_atendimento"]
+    if ag.get("status") in STATUS_PROTEGIDOS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Não é possível cancelar uma consulta com status '{ag['status']}'. Consultas realizadas ou em andamento não podem ser removidas."
+        )
+    
+    # Bloquear se tiver faturamentos vinculados
+    faturamentos = ag.get("fin_faturamentos") or []
+    if len(faturamentos) > 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Não é possível cancelar esta consulta pois ela possui faturamentos vinculados."
+        )
+    
+    # Soft-delete: marca como cancelado
     r = sb.table("agendamentos").update({"status": "cancelado"}).eq("id", agendamento_id).execute()
     if not r.data:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agendamento nao encontrado")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agendamento não encontrado")
     return None
 
 class AgendamentoProcedimentoStatusUpdate(BaseModel):

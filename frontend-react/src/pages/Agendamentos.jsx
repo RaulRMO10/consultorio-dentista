@@ -1,498 +1,540 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import api from '../services/api';
-import { CalendarDays, Plus, Edit2, Trash2, FileWarning, Clock, Users, Stethoscope, DollarSign, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { CalendarDays, Plus, FileWarning, Stethoscope, DollarSign, ChevronLeft, ChevronRight, Trash2, Clock, AlertTriangle } from 'lucide-react';
 import { Modal } from '../components/ui/Modal';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { AgendamentoForm } from '../components/ui/AgendamentoForm';
+import {
+    DndContext, DragOverlay, PointerSensor, useSensor, useSensors,
+    useDroppable, useDraggable, rectIntersection
+} from '@dnd-kit/core';
+import { CSS } from '@dnd-kit/utilities';
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+const START_HOUR = 8;
+const END_HOUR = 20;
+const PX_PER_MIN = 3;
+const SLOT_MIN = 15;
+
+function pxToSnappedTime(px) {
+    const totalMin = Math.max(0, Math.round(px / PX_PER_MIN / SLOT_MIN) * SLOT_MIN);
+    const h = Math.floor(totalMin / 60) + START_HOUR;
+    const m = totalMin % 60;
+    const clampedH = Math.min(h, END_HOUR - 1);
+    return `${String(clampedH).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
+}
+
+// ─── Status Styles ─────────────────────────────────────────────────────────────
+const STATUS_STYLES = {
+    agendado: { bg: 'linear-gradient(135deg,#f8fafc,#e2e8f0)', border: '#94a3b8', text: '#334155', badge: '#64748b', label: 'Agendado', dot: '#94a3b8' },
+    confirmado: { bg: 'linear-gradient(135deg,#eff6ff,#dbeafe)', border: '#3b82f6', text: '#1e40af', badge: '#2563eb', label: 'Confirmado', dot: '#3b82f6' },
+    aguardando: { bg: 'linear-gradient(135deg,#fffbeb,#fef3c7)', border: '#f59e0b', text: '#92400e', badge: '#d97706', label: 'Aguardando', dot: '#f59e0b' },
+    em_atendimento: { bg: 'linear-gradient(135deg,#f0f4ff,#e0e7ff)', border: '#6366f1', text: '#3730a3', badge: '#4f46e5', label: 'Em Atendimento', dot: '#6366f1' },
+    concluido: { bg: 'linear-gradient(135deg,#f0fdf4,#dcfce7)', border: '#22c55e', text: '#14532d', badge: '#16a34a', label: 'Finalizado', dot: '#22c55e' },
+    falta: { bg: 'linear-gradient(135deg,#fff1f2,#ffe4e6)', border: '#f43f5e', text: '#881337', badge: '#e11d48', label: 'Faltou', dot: '#f43f5e' },
+    cancelado: { bg: 'linear-gradient(135deg,#fafafa,#f1f5f9)', border: '#cbd5e1', text: '#64748b', badge: '#94a3b8', label: 'Cancelado', dot: '#cbd5e1' },
+};
+const getStatus = (s) => STATUS_STYLES[s] || STATUS_STYLES.agendado;
+
+// ─── Dentist column colors ─────────────────────────────────────────────────────
+const DENTIST_COLORS = ['#6366f1', '#ec4899', '#f59e0b', '#14b8a6', '#8b5cf6', '#f97316', '#22c55e'];
+
+// ─── Droppable Column ─────────────────────────────────────────────────────────
+function DroppableColumn({ id, totalHeight, children }) {
+    const { isOver, setNodeRef } = useDroppable({ id });
+    return (
+        <div
+            ref={setNodeRef}
+            style={{
+                position: 'relative',
+                height: `${totalHeight}px`,
+                background: isOver ? 'rgba(99,102,241,0.04)' : 'transparent',
+                transition: 'background 0.2s ease',
+            }}
+        >
+            {children}
+        </div>
+    );
+}
+
+// ─── Appointment Card ─────────────────────────────────────────────────────────
+function AppointmentCard({ agend, onDelete, onEdit, isDragging, colorAccent }) {
+    const top = ((new Date(agend.data_hora).getHours() - START_HOUR) * 60 + new Date(agend.data_hora).getMinutes()) * PX_PER_MIN;
+    const height = Math.max((agend.duracao_minutos || 60) * PX_PER_MIN, 36);
+    const st = getStatus(agend.status);
+    const dh = new Date(agend.data_hora);
+    const endDh = new Date(dh.getTime() + (agend.duracao_minutos || 60) * 60000);
+    const pacienteNome = agend.pacientes?.nome || 'Paciente';
+    const STATUS_PROTEGIDOS = ['concluido', 'em_atendimento'];
+    const temFaturamento = agend.fin_faturamentos?.length > 0;
+    const podeCancelar = !STATUS_PROTEGIDOS.includes(agend.status) && !temFaturamento;
+    const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: agend.id, data: { agend } });
+
+    // Detecta se houve movimento real (drag) ou simples clique
+    const pointerStartRef = React.useRef(null);
+    const didDragRef = React.useRef(false);
+
+    const handlePointerDown = (e) => {
+        pointerStartRef.current = { x: e.clientX, y: e.clientY };
+        didDragRef.current = false;
+    };
+    const handlePointerMove = (e) => {
+        if (!pointerStartRef.current) return;
+        const dx = Math.abs(e.clientX - pointerStartRef.current.x);
+        const dy = Math.abs(e.clientY - pointerStartRef.current.y);
+        if (dx > 5 || dy > 5) didDragRef.current = true;
+    };
+    const handleClick = (e) => {
+        if (didDragRef.current) return; // ignorar se foi drag
+        e.stopPropagation();
+        onEdit(agend);
+    };
+
+    return (
+        <div
+            ref={setNodeRef}
+            style={{
+                position: 'absolute',
+                top: `${top}px`,
+                height: `${height}px`,
+                left: '6px', right: '6px',
+                background: st.bg,
+                borderLeft: `4px solid ${st.border}`,
+                borderRadius: '12px',
+                boxShadow: isDragging
+                    ? 'none'
+                    : '0 2px 12px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.05)',
+                opacity: isDragging ? 0.25 : 1,
+                transform: CSS.Translate.toString(transform),
+                transition: isDragging ? 'none' : 'box-shadow 0.2s, opacity 0.15s',
+                touchAction: 'none',
+                zIndex: 10,
+                overflow: 'hidden',
+                cursor: 'grab',
+            }}
+            {...attributes}
+            {...listeners}
+            onPointerDown={(e) => {
+                handlePointerDown(e);
+                listeners?.onPointerDown?.(e);
+            }}
+            onPointerMove={handlePointerMove}
+            onClick={handleClick}
+            className="group"
+        >
+            {/* Accent stripe */}
+            <div style={{
+                position: 'absolute', top: 0, left: 0, right: 0, height: '2px',
+                background: `linear-gradient(90deg, ${st.border}, transparent)`,
+                opacity: 0.5,
+                pointerEvents: 'none',
+            }} />
+
+            {/* Content */}
+            <div style={{ padding: '5px 8px', position: 'relative', height: '100%', display: 'flex', flexDirection: 'column' }}>
+                {/* Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2px' }}>
+                    <span style={{ fontSize: '10px', fontWeight: 700, color: st.badge, letterSpacing: '0.02em', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke={st.badge} strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                        {dh.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} – {endDh.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                    <div>
+                        {podeCancelar ? (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onDelete(agend.id); }}
+                                style={{
+                                    opacity: 0, padding: '2px', border: 'none', background: 'none', cursor: 'pointer',
+                                    color: '#94a3b8', transition: 'opacity 0.15s, color 0.15s',
+                                }}
+                                className="card-delete-btn"
+                                title="Cancelar"
+                                onMouseEnter={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.color = '#f43f5e'; }}
+                                onMouseLeave={e => { e.currentTarget.style.opacity = '0'; }}
+                            >
+                                <Trash2 size={11} />
+                            </button>
+                        ) : (
+                            <span style={{ fontSize: '9px', opacity: 0, color: '#94a3b8' }} title={temFaturamento ? 'Faturado' : 'Consulta realizada'}>🔒</span>
+                        )}
+                    </div>
+                </div>
+
+                {/* Patient name */}
+                <div
+                    style={{ fontSize: '12px', fontWeight: 800, color: st.text, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer', pointerEvents: 'auto' }}
+                    onClick={(e) => { e.stopPropagation(); onEdit(agend); }}
+                >
+                    {pacienteNome}
+                </div>
+
+                {/* Status badge */}
+                <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                    <span style={{
+                        fontSize: '9px', fontWeight: 700, letterSpacing: '0.05em',
+                        color: st.badge, display: 'flex', alignItems: 'center', gap: '3px',
+                        textTransform: 'uppercase',
+                    }}>
+                        <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: st.dot, display: 'inline-block', flexShrink: 0 }} />
+                        {st.label}
+                    </span>
+                    {temFaturamento && (
+                        <span style={{
+                            fontSize: '8px', fontWeight: 700, color: '#16a34a',
+                            background: '#dcfce7', borderRadius: '99px', padding: '1px 5px',
+                            display: 'flex', alignItems: 'center', gap: '2px',
+                        }}>
+                            <DollarSign size={7} /> FATURADO
+                        </span>
+                    )}
+                </div>
+
+                {/* Procedures */}
+                {height >= 80 && agend.agendamento_procedimentos?.length > 0 && (
+                    <div style={{ fontSize: '10px', color: st.text, opacity: 0.65, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '2px' }}>
+                        🦷 {agend.agendamento_procedimentos.map(ap => ap.procedimentos?.nome).join(' · ')}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// ─── Drag Overlay Card ─────────────────────────────────────────────────────────
+function OverlayCard({ agend }) {
+    if (!agend) return null;
+    const height = Math.max((agend.duracao_minutos || 60) * PX_PER_MIN, 36);
+    const st = getStatus(agend.status);
+    const pacienteNome = agend.pacientes?.nome || 'Paciente';
+    const dh = new Date(agend.data_hora);
+    return (
+        <div style={{
+            width: '260px', height: `${height}px`,
+            background: st.bg,
+            borderLeft: `4px solid ${st.border}`,
+            borderRadius: '12px',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.25), 0 6px 20px rgba(0,0,0,0.12)',
+            transform: 'rotate(-2deg) scale(1.06)',
+            backdropFilter: 'blur(20px)',
+            padding: '8px 12px',
+            pointerEvents: 'none',
+        }}>
+            <div style={{ fontSize: '10px', fontWeight: 700, color: st.badge, marginBottom: '4px' }}>
+                {dh.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+            </div>
+            <div style={{ fontSize: '13px', fontWeight: 800, color: st.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pacienteNome}</div>
+            <div style={{ fontSize: '10px', color: st.badge, marginTop: '2px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>{st.label}</div>
+        </div>
+    );
+}
+
+// ─── Now Line ─────────────────────────────────────────────────────────────────
+function NowLine() {
+    const [top, setTop] = useState(null);
+    useEffect(() => {
+        const update = () => {
+            const now = new Date();
+            const h = now.getHours(), m = now.getMinutes();
+            setTop(h >= START_HOUR && h < END_HOUR ? ((h - START_HOUR) * 60 + m) * PX_PER_MIN : null);
+        };
+        update();
+        const id = setInterval(update, 30000);
+        return () => clearInterval(id);
+    }, []);
+    if (top === null) return null;
+    return (
+        <div style={{ position: 'absolute', left: 0, right: 0, top: `${top}px`, zIndex: 30, display: 'flex', alignItems: 'center', pointerEvents: 'none' }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 8px rgba(239,68,68,0.6)', flexShrink: 0, marginLeft: '-4px' }} />
+            <div style={{ flex: 1, height: '1.5px', background: 'linear-gradient(90deg, #ef4444, rgba(239,68,68,0.15))', boxShadow: '0 0 6px rgba(239,68,68,0.3)' }} />
+        </div>
+    );
+}
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
 const Agendamentos = () => {
-    const navigate = useNavigate();
     const [agendamentos, setAgendamentos] = useState([]);
     const [dentistas, setDentistas] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]);
-
-    // Calendar Grid Settings
-    const START_HOUR = 8;
-    const END_HOUR = 19;
-    const PIXELS_PER_MINUTE = 3; // 1 hour = 180px, 15m = 45px
-    const SLOT_HEIGHT = 15 * PIXELS_PER_MINUTE; // 45px
-
-    // Modal States
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedAgendamento, setSelectedAgendamento] = useState(null);
     const [deleteModalConfig, setDeleteModalConfig] = useState({ isOpen: false, agendamentoId: null });
-    const [updatingCards, setUpdatingCards] = useState(new Set()); // Para prevenir drops duplos rápidos
+    const [activeAgend, setActiveAgend] = useState(null);
+    const saveTimerRef = useRef(null);
+    const totalGridHeight = (END_HOUR - START_HOUR) * 60 * PX_PER_MIN;
 
-    const fetchData = async () => {
+    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+
+    const fetchData = useCallback(async () => {
         try {
             setLoading(true);
-            const [agendRes, dentRes] = await Promise.all([
+            const [agRes, dentRes] = await Promise.all([
                 api.get('/api/agendamentos'),
                 api.get('/api/dentistas')
             ]);
-            setAgendamentos(agendRes.data);
-            setDentistas(dentRes.data);
-        } catch (err) {
-            setError('Falha ao carregar a agenda e dentistas.');
-            console.error(err);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchData();
+            setAgendamentos(agRes.data);
+            setDentistas(dentRes.data.filter(d => d.ativo !== false));
+        } catch { setError('Falha ao carregar a agenda.'); }
+        finally { setLoading(false); }
     }, []);
 
-    // Handlers
-    const handleOpenModal = (agendamento = null) => {
-        setSelectedAgendamento(agendamento);
-        setIsModalOpen(true);
-    };
+    useEffect(() => { fetchData(); }, [fetchData]);
 
-    const handleCloseModal = () => {
-        setIsModalOpen(false);
-        setSelectedAgendamento(null);
-    };
-
-    const handleSuccess = () => {
-        handleCloseModal();
-        fetchData();
-    };
-
-    const handleDelete = (id, e) => {
-        e.stopPropagation();
-        setDeleteModalConfig({ isOpen: true, agendamentoId: id });
-    };
-
-    const confirmDelete = async () => {
-        const { agendamentoId } = deleteModalConfig;
-        if (!agendamentoId) return;
-
-        try {
-            await api.delete(`/api/agendamentos/${agendamentoId}`);
-            fetchData();
-            setDeleteModalConfig({ isOpen: false, agendamentoId: null });
-        } catch (err) {
-            console.error(err);
-            setError("Erro ao cancelar agendamento.");
-            setDeleteModalConfig({ isOpen: false, agendamentoId: null });
-        }
-    };
-
-    // Filters & Math
     const filteredAgendamentos = agendamentos.filter(a => {
         if (!a.data_hora || a.status === 'cancelado') return false;
         return a.data_hora.startsWith(filterDate);
     });
 
-    const calculateTopOffset = (timeString) => {
-        // timeString: "HH:MM:SS" or Date string
-        const d = new Date(timeString);
-        let hours = d.getHours();
-        let minutes = d.getMinutes();
+    const handleOpenModal = (ag = null) => { setSelectedAgendamento(ag); setIsModalOpen(true); };
+    const handleCloseModal = () => { setIsModalOpen(false); setSelectedAgendamento(null); };
+    const handleSuccess = () => { handleCloseModal(); fetchData(); };
 
-        // Clamp to start logic
-        if (hours < START_HOUR) return 0;
-
-        const minutesFromStart = ((hours - START_HOUR) * 60) + minutes;
-        return minutesFromStart * PIXELS_PER_MINUTE;
-    };
-
-    const calculateHeight = (duracaoMinutos) => {
-        const d = duracaoMinutos || 60; // default 60
-        return d * PIXELS_PER_MINUTE;
-    };
-
-    // Time Slots for the Y Axis
-    const timeLabels = [];
-    for (let h = START_HOUR; h < END_HOUR; h++) {
-        const baseTop = (h - START_HOUR) * 60 * PIXELS_PER_MINUTE;
-        timeLabels.push({ label: `${h.toString().padStart(2, '0')}:00`, top: baseTop, isMain: true });
-        timeLabels.push({ label: `${h.toString().padStart(2, '0')}:15`, top: baseTop + 15 * PIXELS_PER_MINUTE, isMain: false });
-        timeLabels.push({ label: `${h.toString().padStart(2, '0')}:30`, top: baseTop + 30 * PIXELS_PER_MINUTE, isMain: false });
-        timeLabels.push({ label: `${h.toString().padStart(2, '0')}:45`, top: baseTop + 45 * PIXELS_PER_MINUTE, isMain: false });
-    }
-
-    // Interactive Drag Elements
-    const parseTimeFromPixels = (pixels) => {
-        const totalMinutes = Math.floor(pixels / PIXELS_PER_MINUTE);
-        const hours = Math.floor(totalMinutes / 60) + START_HOUR;
-        const minutes = totalMinutes % 60;
-
-        // Snap to nearest 15 minutes
-        const snappedMinutes = Math.round(minutes / 15) * 15;
-        let finalHours = hours;
-        let finalMinutes = snappedMinutes;
-
-        if (snappedMinutes === 60) {
-            finalHours += 1;
-            finalMinutes = 0;
-        }
-
-        return `${finalHours.toString().padStart(2, '0')}:${finalMinutes.toString().padStart(2, '0')}:00`;
-    };
-
-    const handleDragStart = (e, agendamento) => {
-        if (updatingCards.has(agendamento.id)) {
-            e.preventDefault();
-            return;
-        }
-        e.dataTransfer.setData('agendamento_id', agendamento.id);
-        // Calculate the mouse offset within the card to prevent jumping when dropped
-        const rect = e.currentTarget.getBoundingClientRect();
-        const offsetY = e.clientY - rect.top;
-        e.dataTransfer.setData('offsetY', offsetY);
-        e.dataTransfer.effectAllowed = 'move';
-    };
-
-    const handleDragOver = (e) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-    };
-
-    const handleDrop = async (e, targetDentistaId) => {
-        e.preventDefault();
-        setError(null); // Clear previous error
-
-        const id = e.dataTransfer.getData('agendamento_id');
-        const offsetY = parseInt(e.dataTransfer.getData('offsetY') || '0', 10);
-
-        if (!id || updatingCards.has(id)) return;
-
-        const agendamento = agendamentos.find(a => a.id === id);
-        if (!agendamento) return;
-
-        // Calculate dropped coordinates relative to the column container
-        const columnRect = e.currentTarget.getBoundingClientRect();
-        const dropY = e.clientY - columnRect.top;
-
-        // Adjust for where the user clicked inside the card during drag start
-        const adjustedDropY = Math.max(0, dropY - offsetY);
-
-        const newTargetTimeString = parseTimeFromPixels(adjustedDropY);
-
-        // Construct new JS Date to check logic
-        const novaDataHoraLocal = `${filterDate}T${newTargetTimeString}`;
-        const newStart = new Date(novaDataHoraLocal);
-        const duracao = agendamento.duracao_minutos || 60;
-        const newEnd = new Date(newStart.getTime() + duracao * 60000);
-
-        // Validation: Collision Check Math (StartA < EndB && EndA > StartB)
-        const colliding = filteredAgendamentos.find(other => {
-            if (other.id === agendamento.id) return false;
-            if (other.dentista_id !== targetDentistaId) return false;
-
-            const otherStart = new Date(other.data_hora);
-            const otherDuracao = other.duracao_minutos || 60;
-            const otherEnd = new Date(otherStart.getTime() + otherDuracao * 60000);
-
-            return (newStart < otherEnd && newEnd > otherStart);
-        });
-
-        if (colliding) {
-            setError(`Choque de Horário: O dentista já tem um compromisso que cruza com esse horário.`);
-            setTimeout(() => setError(null), 5000); // Clear after 5 seconds
-            return;
-        }
-
-        // Optimistic Update
-        setAgendamentos(prev => prev.map(a =>
-            a.id === id ? { ...a, data_hora: novaDataHoraLocal, dentista_id: targetDentistaId } : a
-        ));
-
-        // Lock card from being dragged again until request finishes
-        setUpdatingCards(prev => {
-            const next = new Set(prev);
-            next.add(id);
-            return next;
-        });
-
+    const handleDelete = (id) => { setDeleteModalConfig({ isOpen: true, agendamentoId: id }); };
+    const confirmDelete = async () => {
+        const { agendamentoId } = deleteModalConfig;
+        if (!agendamentoId) return;
         try {
-            await api.put(`/api/agendamentos/${id}`, {
-                data_hora: novaDataHoraLocal,
-                dentista_id: targetDentistaId
-            });
+            await api.delete(`/api/agendamentos/${agendamentoId}`);
+            fetchData();
         } catch (err) {
-            console.error("Erro ao mover card", err);
-            setError("Erro ao salvar a alteração de horário no servidor.");
-            fetchData(); // Revert
+            const detail = err.response?.data?.detail;
+            setError(typeof detail === 'string' ? detail : 'Erro ao cancelar agendamento.');
+            setTimeout(() => setError(null), 6000);
         } finally {
-            setUpdatingCards(prev => {
-                const next = new Set(prev);
-                next.delete(id);
-                return next;
-            });
+            setDeleteModalConfig({ isOpen: false, agendamentoId: null });
         }
     };
 
+    const scheduleSave = useCallback((id, newDataHora, newDentistaId) => {
+        if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = setTimeout(async () => {
+            try {
+                await api.put(`/api/agendamentos/${id}`, { data_hora: newDataHora, dentista_id: newDentistaId });
+            } catch (err) {
+                const detail = err.response?.data?.detail;
+                setError(typeof detail === 'string' ? detail : 'Erro ao salvar no servidor.');
+                fetchData();
+                setTimeout(() => setError(null), 6000);
+            }
+        }, 800);
+    }, [fetchData]);
 
-    const getStatusColor = (status) => {
-        switch (status) {
-            case 'agendado': return { border: 'border-slate-400 dark:border-slate-500', dot: 'bg-slate-500', bg: 'bg-slate-200 dark:bg-slate-700/80', label: 'Agendado' };
-            case 'confirmado': return { border: 'border-blue-400 dark:border-blue-500', dot: 'bg-blue-600', bg: 'bg-blue-200 dark:bg-blue-900/60', label: 'Confirmado' };
-            case 'aguardando': return { border: 'border-orange-400 dark:border-orange-500', dot: 'bg-orange-600', bg: 'bg-orange-200 dark:bg-orange-900/60', label: 'Aguardando' };
-            case 'em_atendimento': return { border: 'border-indigo-400 dark:border-indigo-500', dot: 'bg-indigo-600', bg: 'bg-indigo-300 dark:bg-indigo-900/80', label: 'Em Atendimento' };
-            case 'concluido': return { border: 'border-emerald-400 dark:border-emerald-500', dot: 'bg-emerald-600', bg: 'bg-emerald-200 dark:bg-emerald-900/60', label: 'Finalizado' };
-            case 'falta': return { border: 'border-red-400 dark:border-red-500', dot: 'bg-red-600', bg: 'bg-red-200 dark:bg-red-900/60', label: 'Faltou' };
-            case 'cancelado': return { border: 'border-rose-400 dark:border-rose-500', dot: 'bg-rose-600', bg: 'bg-rose-200 dark:bg-rose-900/60', label: 'Cancelado' };
-            default: return { border: 'border-slate-300', dot: 'bg-slate-400', bg: 'bg-slate-100 dark:bg-slate-800', label: status };
-        }
+    const handleDragStart = ({ active }) => {
+        setActiveAgend(agendamentos.find(a => a.id === active.id) || null);
     };
 
-    const renderAbsoluteCard = (agend) => {
-        const top = calculateTopOffset(agend.data_hora);
-        const height = calculateHeight(agend.duracao_minutos);
-        const pacienteNome = agend.pacientes?.nome || 'Paciente Desconhecido';
-        const st = getStatusColor(agend.status);
+    const handleDragEnd = ({ active, over, delta }) => {
+        setActiveAgend(null);
+        if (!active || !over) return;
+        const agend = agendamentos.find(a => a.id === active.id);
+        if (!agend) return;
+        const targetDentistaId = over.id;
+        const oldDh = new Date(agend.data_hora);
+        const oldTopPx = (oldDh.getHours() - START_HOUR) * 60 * PX_PER_MIN + oldDh.getMinutes() * PX_PER_MIN;
+        const newTopPx = Math.max(0, oldTopPx + delta.y);
+        const snappedTime = pxToSnappedTime(newTopPx);
+        const newDataHora = `${filterDate}T${snappedTime}`;
+        const oldDataHora = `${filterDate}T${String(oldDh.getHours()).padStart(2, '0')}:${String(oldDh.getMinutes()).padStart(2, '0')}:00`;
+        if (newDataHora === oldDataHora && targetDentistaId === agend.dentista_id) return;
 
-        const dh = new Date(agend.data_hora);
-        const endDh = new Date(dh.getTime() + (agend.duracao_minutos || 60) * 60000);
+        const newStart = new Date(newDataHora);
+        const newEnd = new Date(newStart.getTime() + (agend.duracao_minutos || 60) * 60000);
+        const colliding = filteredAgendamentos.find(other => {
+            if (other.id === agend.id || other.dentista_id !== targetDentistaId || ['cancelado', 'falta'].includes(other.status)) return false;
+            const os = new Date(other.data_hora);
+            const oe = new Date(os.getTime() + (other.duracao_minutos || 60) * 60000);
+            return newStart < oe && newEnd > os;
+        });
+        if (colliding) { setError('Choque de horário: já existe uma consulta nesse slot.'); setTimeout(() => setError(null), 4000); return; }
 
-        return (
-            <div
-                key={agend.id}
-                draggable
-                onDragStart={(e) => handleDragStart(e, agend)}
-                onClick={(e) => {
-                    // Prevent drag/drop from bubbling as regular click occasionally
-                    e.stopPropagation();
-                    handleOpenModal(agend);
-                }}
-                style={{ top: `${top}px`, height: `${height}px` }}
-                className={`absolute left-1 right-1 p-2 rounded-lg border-l-4 border-y border-r shadow-sm hover:shadow-md hover:z-50 cursor-pointer active:cursor-grabbing transition-shadow overflow-hidden group z-10 ${st.bg} ${st.border} ${updatingCards.has(agend.id) ? 'opacity-50 pointer-events-none' : ''}`}
-            >
-                {/* Thin header row */}
-                <div className="flex justify-between items-start mb-1">
-                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 tracking-wider">
-                        {dh.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} - {endDh.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                    <button onClick={(e) => handleDelete(agend.id, e)} className="p-0.5 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-opacity">
-                        <Trash2 size={12} />
-                    </button>
-                </div>
-
-                {/* Body Content */}
-                <div className="flex flex-col h-full">
-                    <h3 className="text-sm font-bold text-slate-900 dark:text-white leading-tight mb-1" title={pacienteNome}>
-                        {pacienteNome} <span className="text-[10px] font-normal text-slate-500 ml-1">({st.label})</span>
-                    </h3>
-
-                    {/* Show extra details if card is tall enough (>= 45m = 90px) */}
-                    {height >= 80 && (
-                        <div className="mt-1 space-y-1">
-                            {agend.agendamento_procedimentos && agend.agendamento_procedimentos.length > 0 && (
-                                <div className="text-[11px] font-medium text-slate-600 dark:text-slate-300 truncate opacity-90" title={agend.agendamento_procedimentos.map(ap => ap.procedimentos?.nome).join(', ')}>
-                                    🦷 {agend.agendamento_procedimentos.map(ap => ap.procedimentos?.nome).join(' + ')}
-                                </div>
-                            )}
-                            {agend.fin_faturamentos && agend.fin_faturamentos.length > 0 && (
-                                <div className="inline-flex mt-1 items-center gap-0.5 text-[10px] text-emerald-700 dark:text-emerald-400 font-bold bg-emerald-100/50 dark:bg-emerald-900/30 px-1 py-0.5 rounded">
-                                    <DollarSign size={10} /> FATURADO
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Faturamento / Checkout Actions for Concluido */}
-                    {agend.status === 'concluido' && (
-                        <div className="mt-auto pt-2">
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (agend.clin_tratamento_id) {
-                                        navigate(`/faturamentos?paciente_id=${agend.paciente_id}`);
-                                    } else {
-                                        navigate(`/faturamentos?paciente_id=${agend.paciente_id}`);
-                                    }
-                                }}
-                                className={`w-full text-[10px] font-bold py-1.5 px-2 rounded-md border flex items-center justify-center gap-1 transition-colors ${agend.clin_tratamento_id
-                                    ? 'bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-800' // Ver Financeiro
-                                    : 'bg-rose-100 text-rose-700 border-rose-200 hover:bg-rose-200 dark:bg-rose-900/40 dark:text-rose-300 dark:border-rose-800' // Faturar
-                                    }`}
-                            >
-                                <DollarSign size={12} />
-                                {agend.clin_tratamento_id ? 'Ver Financeiro' : 'Faturar / Checkout'}
-                            </button>
-                        </div>
-                    )}
-                </div>
-            </div>
-        );
+        setAgendamentos(prev => prev.map(a => a.id === agend.id ? { ...a, data_hora: newDataHora, dentista_id: targetDentistaId } : a));
+        scheduleSave(agend.id, newDataHora, targetDentistaId);
     };
+
+    const navigateDate = (days) => {
+        const d = new Date(filterDate + 'T12:00:00');
+        d.setDate(d.getDate() + days);
+        setFilterDate(d.toISOString().split('T')[0]);
+    };
+
+    const totalHours = END_HOUR - START_HOUR;
 
     return (
-        <div className="w-full animate-in fade-in duration-500 pb-12">
-            <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif", width: '100%', paddingBottom: '48px' }}>
+            {/* ── Hero Header ── */}
+            <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-3">
-                        <div className="p-3 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl">
-                            <CalendarDays size={24} />
+                    <h1 style={{ fontSize: '26px', fontWeight: 800, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '10px', letterSpacing: '-0.03em' }}>
+                        <div style={{ width: '42px', height: '42px', borderRadius: '14px', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 16px rgba(99,102,241,0.35)' }}>
+                            <CalendarDays size={20} color="white" />
                         </div>
-                        Agenda Calendário
-                    </h2>
-                    <p className="text-slate-500 dark:text-slate-400 mt-2">Visão em grade interativa. Arraste os blocos para ajustar horários ou trocar dentistas.</p>
+                        Agenda
+                    </h1>
+                    <p style={{ margin: '4px 0 0 52px', fontSize: '13px', color: '#64748b', fontWeight: 500 }}>
+                        Arraste para mover • Clique no nome para editar
+                    </p>
                 </div>
-                <div>
-                    <button
-                        onClick={() => handleOpenModal()}
-                        className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-md shadow-indigo-500/20 transition-all active:scale-95"
-                    >
-                        <Plus size={18} /> Nova Consulta
-                    </button>
-                </div>
-            </header>
+                <button
+                    onClick={() => handleOpenModal()}
+                    style={{
+                        display: 'flex', alignItems: 'center', gap: '8px',
+                        background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+                        color: 'white', border: 'none', borderRadius: '14px',
+                        padding: '11px 22px', fontSize: '14px', fontWeight: 700,
+                        cursor: 'pointer', boxShadow: '0 4px 20px rgba(99,102,241,0.4)',
+                        transition: 'all 0.2s ease',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 24px rgba(99,102,241,0.55)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(99,102,241,0.4)'; }}
+                >
+                    <Plus size={17} /> Nova Consulta
+                </button>
+            </div>
 
+            {/* ── Error Banner ── */}
             {error && (
-                <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800 flex items-center gap-3 text-red-700 dark:text-red-400">
-                    <FileWarning size={20} />
-                    <p className="font-medium">{error}</p>
+                <div style={{ marginBottom: '16px', padding: '12px 16px', background: 'linear-gradient(135deg,#fff1f2,#ffe4e6)', border: '1px solid #fecdd3', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '10px', color: '#9f1239', fontWeight: 600, fontSize: '13px' }}>
+                    <AlertTriangle size={16} />
+                    {error}
                 </div>
             )}
 
-            {/* Toolbar */}
-            <div className="mb-6 p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700/50 shadow-sm flex flex-col sm:flex-row justify-between items-center gap-4">
-                <div className="flex items-center gap-3 w-full sm:w-auto">
-                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Data:</label>
-                    <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-1 shadow-sm">
-                        <button
-                            onClick={() => {
-                                const d = new Date(filterDate + 'T12:00:00'); // Use mid-day to avoid timezone edge cases
-                                d.setDate(d.getDate() - 1);
-                                setFilterDate(d.toISOString().split('T')[0]);
-                            }}
-                            className="p-1.5 hover:bg-white dark:hover:bg-slate-800 rounded-lg text-slate-500 transition-colors"
-                            title="Dia Anterior"
-                        >
-                            <ChevronLeft size={18} />
+            {/* ── Toolbar ── */}
+            <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', background: 'white', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '10px 16px', boxShadow: '0 1px 8px rgba(0,0,0,0.05)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>Data:</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0', padding: '3px' }}>
+                        <button onClick={() => navigateDate(-1)} style={{ padding: '5px 8px', border: 'none', background: 'none', cursor: 'pointer', color: '#64748b', borderRadius: '8px', display: 'flex', alignItems: 'center', transition: 'background 0.15s' }}
+                            onMouseEnter={e => e.currentTarget.style.background = '#e2e8f0'} onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                            <ChevronLeft size={15} />
                         </button>
                         <input
-                            type="date"
-                            value={filterDate}
-                            onChange={(e) => setFilterDate(e.target.value)}
-                            className="bg-transparent text-slate-900 dark:text-white transition-all text-sm font-medium outline-none text-center custom-date-input"
+                            type="date" value={filterDate}
+                            onChange={e => setFilterDate(e.target.value)}
+                            style={{ border: 'none', background: 'none', fontSize: '13px', fontWeight: 700, color: '#1e293b', cursor: 'pointer', outline: 'none', textAlign: 'center', padding: '0 4px' }}
                         />
-                        <button
-                            onClick={() => {
-                                const d = new Date(filterDate + 'T12:00:00');
-                                d.setDate(d.getDate() + 1);
-                                setFilterDate(d.toISOString().split('T')[0]);
-                            }}
-                            className="p-1.5 hover:bg-white dark:hover:bg-slate-800 rounded-lg text-slate-500 transition-colors"
-                            title="Próximo Dia"
-                        >
-                            <ChevronRight size={18} />
+                        <button onClick={() => navigateDate(1)} style={{ padding: '5px 8px', border: 'none', background: 'none', cursor: 'pointer', color: '#64748b', borderRadius: '8px', display: 'flex', alignItems: 'center', transition: 'background 0.15s' }}
+                            onMouseEnter={e => e.currentTarget.style.background = '#e2e8f0'} onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                            <ChevronRight size={15} />
                         </button>
                     </div>
                 </div>
-                <div className="text-sm text-slate-500 dark:text-slate-400 font-medium bg-slate-100 dark:bg-slate-900 px-4 py-2 rounded-lg flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
-                    {filteredAgendamentos.length} agendamentos na grade
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#6366f1' }} />
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>
+                        {filteredAgendamentos.length} consulta{filteredAgendamentos.length !== 1 ? 's' : ''}
+                    </span>
                 </div>
             </div>
 
-            {/* FULL GRID CALENDAR BASE */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm flex">
+            {/* ── Calendar ── */}
+            <div style={{ background: 'white', borderRadius: '20px', border: '1px solid #e2e8f0', boxShadow: '0 4px 32px rgba(0,0,0,0.06)', overflow: 'hidden', display: 'flex' }}>
 
-                {/* 1. Y-Axis Time Labels Strip */}
-                <div className="w-16 flex-shrink-0 border-r border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 relative pt-12 z-20">
-                    {timeLabels.map((t, idx) => (
-                        <div
-                            key={idx}
-                            style={{ top: `${t.top + 48}px` }} // 48 is the header height offset
-                            className={`absolute right-2 -translate-y-1/2 ${t.isMain ? 'text-[11px] font-bold text-slate-500' : 'text-[9px] font-medium text-slate-400'}`}
-                        >
-                            {t.label}
-                        </div>
-                    ))}
+                {/* Time axis */}
+                <div style={{ width: '52px', flexShrink: 0, borderRight: '1px solid #f1f5f9', background: '#fafbff', position: 'relative', paddingTop: '52px' }}>
+                    {Array.from({ length: totalHours }).map((_, i) => {
+                        const h = START_HOUR + i;
+                        return (
+                            <React.Fragment key={h}>
+                                <div style={{ position: 'absolute', top: `${52 + i * 60 * PX_PER_MIN}px`, right: '8px', transform: 'translateY(-50%)', fontSize: '10px', fontWeight: 700, color: h === new Date().getHours() ? '#6366f1' : '#94a3b8', userSelect: 'none' }}>
+                                    {String(h).padStart(2, '0')}:00
+                                </div>
+                                <div style={{ position: 'absolute', top: `${52 + (i * 60 + 30) * PX_PER_MIN}px`, right: '10px', transform: 'translateY(-50%)', fontSize: '9px', fontWeight: 500, color: '#cbd5e1', userSelect: 'none' }}>
+                                    :30
+                                </div>
+                            </React.Fragment>
+                        );
+                    })}
                 </div>
 
-                {/* 2. X-Axis Scrollable Columns container */}
-                <div className="flex-1 overflow-x-auto custom-scrollbar bg-slate-50/30 dark:bg-slate-900/20">
+                {/* DnD Canvas */}
+                <div style={{ flex: 1, overflowX: 'auto', overflowY: 'hidden' }}>
                     {loading && dentistas.length === 0 ? (
-                        <div className="p-20 flex justify-center w-full">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: '80px' }}>
+                            <div style={{ width: '36px', height: '36px', borderRadius: '50%', border: '3px solid #f1f5f9', borderTopColor: '#6366f1', animation: 'spin 0.8s linear infinite' }} />
                         </div>
                     ) : (
-                        <div className="flex min-w-max">
-
-                            {/* Render a column for each Dentist */}
-                            {dentistas.map((dentista, dIndex) => {
-                                const dentistaAgends = filteredAgendamentos.filter(a => a.dentista_id === dentista.id);
-                                const totalGridHeight = (END_HOUR - START_HOUR) * 60 * PIXELS_PER_MINUTE; // The total height of the day
-
-                                return (
-                                    <div key={dentista.id} className="w-[300px] flex-shrink-0 flex flex-col border-r border-slate-200 dark:border-slate-800">
-
-                                        {/* Column Header (Dentist Name) */}
-                                        <div className="h-12 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/80 sticky top-0 z-30 flex items-center justify-center p-2 backdrop-blur-sm">
-                                            <div className="flex items-center gap-2">
-                                                <div className="p-1.5 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 rounded-lg">
-                                                    <Stethoscope size={16} />
+                        <DndContext sensors={sensors} collisionDetection={rectIntersection} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+                            <div style={{ display: 'flex', minWidth: 'max-content' }}>
+                                {dentistas.map((dentista, idx) => {
+                                    const accent = DENTIST_COLORS[idx % DENTIST_COLORS.length];
+                                    const dAgends = filteredAgendamentos.filter(a => a.dentista_id === dentista.id);
+                                    return (
+                                        <div key={dentista.id} style={{ width: '280px', flexShrink: 0, borderRight: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column' }}>
+                                            {/* Column Header */}
+                                            <div style={{
+                                                height: '52px', borderBottom: '1px solid #f1f5f9',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                                                background: `linear-gradient(to bottom, ${accent}12, white)`,
+                                                position: 'sticky', top: 0, zIndex: 20, backdropFilter: 'blur(8px)',
+                                            }}>
+                                                <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: `${accent}22`, border: `2px solid ${accent}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                    <Stethoscope size={13} color={accent} />
                                                 </div>
-                                                <h3 className="font-bold text-slate-800 dark:text-white text-sm line-clamp-1">{dentista.nome}</h3>
+                                                <span style={{ fontWeight: 800, fontSize: '12px', color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '180px' }}>
+                                                    {dentista.nome}
+                                                </span>
                                             </div>
+
+                                            {/* Droppable */}
+                                            <DroppableColumn id={dentista.id} totalHeight={totalGridHeight}>
+                                                {/* Grid lines */}
+                                                {Array.from({ length: totalHours * 4 }).map((_, i) => (
+                                                    <div key={i} style={{
+                                                        position: 'absolute', width: '100%',
+                                                        top: `${i * SLOT_MIN * PX_PER_MIN}px`,
+                                                        borderTop: i % 4 === 0
+                                                            ? '1px solid #f1f5f9'
+                                                            : '1px dashed #f8fafc',
+                                                        zIndex: 0, pointerEvents: 'none',
+                                                    }} />
+                                                ))}
+                                                <NowLine />
+                                                {dAgends.map(ag => (
+                                                    <AppointmentCard
+                                                        key={ag.id}
+                                                        agend={ag}
+                                                        onDelete={handleDelete}
+                                                        onEdit={handleOpenModal}
+                                                        isDragging={activeAgend?.id === ag.id}
+                                                        colorAccent={accent}
+                                                    />
+                                                ))}
+                                            </DroppableColumn>
                                         </div>
+                                    );
+                                })}
+                                {dentistas.length < 3 && (
+                                    <div style={{ flex: 1, minWidth: '100px', background: '#fafbff' }} />
+                                )}
+                            </div>
 
-                                        {/* Column Body Container (Absolute Positioning Bounds) */}
-                                        <div
-                                            className="relative w-full"
-                                            style={{ height: `${totalGridHeight}px` }}
-                                            onDragOver={handleDragOver}
-                                            onDrop={(e) => handleDrop(e, dentista.id)}
-                                        >
-
-                                            {/* Draw horizontal ruled lines for every 15 mins to guide the eye */}
-                                            {Array.from({ length: (END_HOUR - START_HOUR) * 4 }).map((_, i) => (
-                                                <div
-                                                    key={`rule-${i}`}
-                                                    className={`absolute w-full border-t pointer-events-none ${i % 4 === 0 ? 'border-slate-200 dark:border-slate-700/60' : 'border-slate-100 dark:border-slate-800/40 border-dashed'}`}
-                                                    style={{ top: `${i * 15 * PIXELS_PER_MINUTE}px`, zIndex: 0 }}
-                                                ></div>
-                                            ))}
-
-                                            {/* Render all cards for this dentist */}
-                                            {dentistaAgends.map(agend => renderAbsoluteCard(agend))}
-
-                                        </div>
-                                    </div>
-                                );
-                            })}
-
-                            {/* Grace space block at the end if the list of dentist is small to fill width */}
-                            {dentistas.length < 3 && (
-                                <div className="flex-1 min-w-[300px] bg-slate-50 dark:bg-slate-900/30 pattern-diagonal-lines pattern-slate-100 dark:pattern-slate-800/20 pattern-bg-transparent pattern-size-4 opacity-50"></div>
-                            )}
-
-                        </div>
+                            <DragOverlay dropAnimation={null}>
+                                {activeAgend ? <OverlayCard agend={activeAgend} /> : null}
+                            </DragOverlay>
+                        </DndContext>
                     )}
                 </div>
             </div>
 
-            <Modal
-                isOpen={isModalOpen}
-                onClose={handleCloseModal}
-                title={selectedAgendamento ? "Atualizar Agendamento" : "Nova Consulta"}
-            >
-                <AgendamentoForm
-                    initialData={selectedAgendamento}
-                    onSuccess={handleSuccess}
-                    onCancel={handleCloseModal}
-                />
+            <style>{`
+                @keyframes spin { to { transform: rotate(360deg); } }
+                .group:hover .card-delete-btn { opacity: 1 !important; }
+            `}</style>
+
+            {/* Modals */}
+            <Modal isOpen={isModalOpen} onClose={handleCloseModal} title={selectedAgendamento ? 'Atualizar Agendamento' : 'Nova Consulta'}>
+                <AgendamentoForm initialData={selectedAgendamento} onSuccess={handleSuccess} onCancel={handleCloseModal} />
             </Modal>
 
-            {/* Modal de Confirmação de Exclusão (Cancelamento) */}
             <ConfirmDialog
                 isOpen={deleteModalConfig.isOpen}
                 onClose={() => setDeleteModalConfig({ isOpen: false, agendamentoId: null })}
                 onConfirm={confirmDelete}
                 title="Cancelar Consulta"
-                message="Tem certeza que deseja cancelar esta consulta?"
+                message="Confirma o cancelamento desta consulta?"
                 confirmText="Sim, Cancelar"
-                cancelText="Fechar"
+                cancelText="Voltar"
                 isDanger={true}
             />
         </div>

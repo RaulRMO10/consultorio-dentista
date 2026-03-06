@@ -68,10 +68,10 @@ def resumo_dashboard_global(mes: Optional[int] = None, ano: Optional[int] = None
     res = sb.table("fin_transacoes").select("*, fin_categorias(nome, tipo, escopo)").gte("data_vencimento", f"{ano}-{mes:02d}-01").lt("data_vencimento", f"{prox_ano}-{prox_mes:02d}-01").execute()
     txs = res.data
 
-    # KPI 1: Faturamento Bruto (Entrou na conta clínica)
+    # KPI 1: Faturamento Bruto (Entrou na conta clínica - apenas PAGO)
     faturamento_bruto = sum(t["valor"] for t in txs if t["fin_categorias"]["tipo"] == "RECEITA" and t["conta_destino"] == "CLINICA" and t["status"] == "PAGO")
     
-    # KPI 2: Lucro Operacional (Faturamento - Despesas da Clínica pagas)
+    # KPI 2: Despesas da Clínica pagas (inclui taxas de operadora registradas como despesa real)
     despesas_clinica = sum(t["valor"] for t in txs if t["fin_categorias"]["tipo"] == "DESPESA" and t["fin_categorias"]["escopo"] == "CLINICA" and t["status"] == "PAGO")
     lucro_operacional = faturamento_bruto - despesas_clinica
 
@@ -308,8 +308,108 @@ def pagar_parcela(tx_id: str, dados: Optional[PagamentoTx] = None):
             
             novo_status = "QUITADO" if todas_pagas else ("PAGO_PARCIAL" if alguma_paga else "ABERTO")
             sb.table("fin_faturamentos").update({"status": novo_status}).eq("id", fat_id).execute()
-            
+
+        # ─── Despesa Automática de Taxa ────────────────────────────────────────
+        # Se a parcela foi liquidada com taxa (maquininha, cartão, etc.),
+        # registramos automaticamente a taxa como despesa operacional da clínica.
+        taxa_val = round(dados.taxa_valor or 0.0, 2) if dados else 0.0
+        if taxa_val > 0:
+            # Busca (ou cria) a categoria "Taxa de Operadora"
+            cat_taxa_res = sb.table("fin_categorias").select("id").eq("nome", "Taxa de Operadora").execute()
+            if cat_taxa_res.data:
+                cat_taxa_id = cat_taxa_res.data[0]["id"]
+            else:
+                # Cria a categoria caso não exista
+                nova_cat = sb.table("fin_categorias").insert({
+                    "nome": "Taxa de Operadora",
+                    "tipo": "DESPESA",
+                    "escopo": "CLINICA",
+                    "ativo": True
+                }).execute()
+                cat_taxa_id = nova_cat.data[0]["id"] if nova_cat.data else None
+
+            if cat_taxa_id:
+                metodo = (dados.metodo_pagamento or "Não informado") if dados else "Não informado"
+                descricao_taxa = f"Taxa de Operadora ({metodo}) — {tx_original.get('descricao', 'Parcela')}"
+                sb.table("fin_transacoes").insert({
+                    "categoria_id": cat_taxa_id,
+                    "faturamento_id": fat_id,
+                    "descricao": descricao_taxa,
+                    "valor": taxa_val,
+                    "data_vencimento": hoje,
+                    "data_pagamento": hoje,
+                    "conta_origem": "CLINICA",
+                    "status": "PAGO",
+                    "metodo_pagamento": metodo,
+                }).execute()
+        # ──────────────────────────────────────────────────────────────────────
+
         return r.data[0]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao processar pagamento: {str(e)}")
+
+
+@router.post("/migrar-taxas", status_code=status.HTTP_200_OK)
+def migrar_taxas_como_despesas():
+    """
+    Varredura retroativa: para cada fin_transacao com taxa_valor > 0 e status PAGO,
+    cria automaticamente uma fin_transacao de DESPESA (Taxa de Operadora) se ainda não existir.
+    Idempotente: usa marcador [taxa-tx:{id}] na descrição para não duplicar.
+    """
+    from datetime import datetime
+    sb = get_supabase()
+
+    # Busca ou cria a categoria "Taxa de Operadora"
+    cat_res = sb.table("fin_categorias").select("id").eq("nome", "Taxa de Operadora").execute()
+    if cat_res.data:
+        cat_taxa_id = cat_res.data[0]["id"]
+    else:
+        nova_cat = sb.table("fin_categorias").insert({
+            "nome": "Taxa de Operadora",
+            "tipo": "DESPESA",
+            "escopo": "CLINICA",
+            "ativo": True
+        }).execute()
+        cat_taxa_id = nova_cat.data[0]["id"]
+
+    # Busca todas as transações pagas com taxa
+    txs_res = sb.table("fin_transacoes").select("*").eq("status", "PAGO").gt("taxa_valor", 0).execute()
+    txs = txs_res.data or []
+
+    criadas = 0
+    ignoradas = 0
+
+    for tx in txs:
+        taxa_val = round(float(tx.get("taxa_valor") or 0), 2)
+        if taxa_val <= 0:
+            continue
+
+        # Idempotência: procura se já existe despesa criada para esta transação
+        marcador = f"[taxa-tx:{tx['id']}]"
+        existente = sb.table("fin_transacoes").select("id").eq("categoria_id", cat_taxa_id).ilike("descricao", f"%{marcador}%").execute()
+        if existente.data:
+            ignoradas += 1
+            continue
+
+        data_pag = tx.get("data_pagamento") or tx.get("data_vencimento") or datetime.now().date().isoformat()
+        metodo = tx.get("metodo_pagamento") or "Não informado"
+
+        sb.table("fin_transacoes").insert({
+            "categoria_id": cat_taxa_id,
+            "faturamento_id": tx.get("faturamento_id"),
+            "descricao": f"Taxa de Operadora ({metodo}) {marcador}",
+            "valor": taxa_val,
+            "data_vencimento": str(data_pag),
+            "data_pagamento": str(data_pag),
+            "conta_origem": "CLINICA",
+            "status": "PAGO",
+            "metodo_pagamento": metodo,
+        }).execute()
+        criadas += 1
+
+    return {
+        "message": f"Migração concluída: {criadas} despesas de taxa criadas, {ignoradas} já existiam.",
+        "criadas": criadas,
+        "ignoradas": ignoradas
+    }
 
