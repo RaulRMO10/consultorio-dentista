@@ -110,9 +110,9 @@ def atualizar_categoria(id: int, dados: CategoriaUpdate):
     return r.data[0]
 
 @router.delete("/categorias/{id}", status_code=status.HTTP_204_NO_CONTENT)
-def inativar_categoria(id: int):
+def deletar_categoria(id: int):
     sb = get_supabase()
-    r = sb.table("fin_categorias").update({"ativo": False}).eq("id", id).execute()
+    r = sb.table("fin_categorias").delete().eq("id", id).execute()
     if not r.data:
-         raise HTTPException(status_code=404, detail="Categoria não encontrada")
+         raise HTTPException(status_code=404, detail="Categoria não encontrada ou com lançamentos vinculados")
     return None

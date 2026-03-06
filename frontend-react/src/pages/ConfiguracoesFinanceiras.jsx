@@ -281,17 +281,13 @@ const ConfiguracoesFinanceiras = () => {
     };
 
     const handleToggleStatusCategoria = async (item) => {
-        if (!window.confirm(`Deseja ${item.ativo ? 'inativar' : 'ativar'} a categoria ${item.nome}?`)) return;
+        if (!window.confirm(`Deseja excluir a categoria ${item.nome} permanentemente?`)) return;
         try {
-            if (item.ativo) {
-                await api.delete(`/api/financeiro/settings/categorias/${item.id}`);
-            } else {
-                await api.put(`/api/financeiro/settings/categorias/${item.id}`, { ativo: true });
-            }
+            await api.delete(`/api/financeiro/settings/categorias/${item.id}`);
             fetchCategorias();
         } catch (err) {
             console.error(err);
-            alert("Erro ao alterar status.");
+            alert(err.response?.data?.detail || "Erro ao excluir categoria.");
         }
     };
 
@@ -379,33 +375,25 @@ const ConfiguracoesFinanceiras = () => {
                                         <thead>
                                             <tr className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 uppercase text-xs tracking-wider">
                                                 <th className="px-6 py-4 font-semibold">Nome da Categoria</th>
-                                                <th className="px-6 py-4 font-semibold">Status</th>
                                                 <th className="px-6 py-4 font-semibold text-right">Ações</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                             {loadingCategorias ? (
-                                                <tr><td colSpan="3" className="px-6 py-8 text-center text-slate-500">Carregando...</td></tr>
+                                                <tr><td colSpan="2" className="px-6 py-8 text-center text-slate-500">Carregando...</td></tr>
                                             ) : currentTabCategorias.length === 0 ? (
-                                                <tr><td colSpan="3" className="px-6 py-12 text-center text-slate-400">Nenhuma categoria cadastrada para {activeTabInfo.label}.</td></tr>
+                                                <tr><td colSpan="2" className="px-6 py-12 text-center text-slate-400">Nenhuma categoria cadastrada para {activeTabInfo.label}.</td></tr>
                                             ) : (
                                                 currentTabCategorias.map(cat => (
-                                                    <tr key={cat.id} className={`hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors ${!cat.ativo ? 'opacity-50' : ''}`}>
+                                                    <tr key={cat.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                                                         <td className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100">{cat.nome}</td>
-                                                        <td className="px-6 py-4">
-                                                            {cat.ativo ? (
-                                                                <span className="px-2 py-1 bg-emerald-100 text-emerald-700 rounded text-xs font-bold uppercase tracking-wider">Ativo</span>
-                                                            ) : (
-                                                                <span className="px-2 py-1 bg-slate-100 text-slate-500 rounded text-xs font-bold uppercase tracking-wider">Inativo</span>
-                                                            )}
-                                                        </td>
                                                         <td className="px-6 py-4 text-right">
                                                             <div className="flex items-center justify-end gap-2">
                                                                 <button onClick={() => { setEditCategoria(cat); setIsCatModalOpen(true); }} className="p-2 text-slate-400 hover:text-indigo-600 rounded-lg transition-colors">
                                                                     <Edit2 size={16} />
                                                                 </button>
-                                                                <button onClick={() => handleToggleStatusCategoria(cat)} className={`p-2 rounded-lg transition-colors ${cat.ativo ? 'text-slate-400 hover:text-red-500' : 'text-slate-400 hover:text-emerald-500'}`}>
-                                                                    <Power size={16} />
+                                                                <button onClick={() => handleToggleStatusCategoria(cat)} className="p-2 rounded-lg transition-colors text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/40" title="Excluir Categoria">
+                                                                    <Trash2 size={16} />
                                                                 </button>
                                                             </div>
                                                         </td>
