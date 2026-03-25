@@ -20,6 +20,8 @@ class FaturamentoCreate(BaseModel):
     valor_desconto: float = 0.0
     valor_final: float
     valor_entrada: float = 0.0
+    taxa_porcentagem_entrada: float = 0.0
+    taxa_valor_entrada: float = 0.0
     data_vencimento_primeira: Optional[str] = None
     metodo_pagamento: str
     numero_parcelas: int = 1
@@ -41,7 +43,7 @@ def listar_resumo_clientes():
     pacientes = pacientes_res.data
 
     # Pega faturamentos globais com transações
-    fat_res = sb.table("fin_faturamentos").select("paciente_id, valor_final, status, agendamento_id, fin_transacoes(valor, status)").execute()
+    fat_res = sb.table("fin_faturamentos").select("paciente_id, valor_final, status, agendamento_id, fin_transacoes(valor, status, descricao)").execute()
     faturamentos = fat_res.data
     
     # Pega todos os agendamentos com procedimentos para calcular o que falta faturar
@@ -52,13 +54,19 @@ def listar_resumo_clientes():
     resumo = []
     for p in pacientes:
         fat_paciente = [f for f in faturamentos if f["paciente_id"] == p["id"] and f["status"] != "CANCELADO"]
-        total_faturado = sum(f["valor_final"] for f in fat_paciente)
-        
         total_pendente = 0
+        total_faturado = 0
         for f in fat_paciente:
             txs = f.get("fin_transacoes", []) or []
-            pendente_txs = sum(t["valor"] for t in txs if t["status"] == "PENDENTE")
-            total_pendente += pendente_txs
+            
+            pago = sum(t["valor"] for t in txs if t["status"] == "PAGO" and "Taxa de Operadora" not in (t.get("descricao") or ""))
+            pend = sum(t["valor"] for t in txs if t["status"] == "PENDENTE" and "Taxa de Operadora" not in (t.get("descricao") or ""))
+            
+            if txs:
+                f["valor_final"] = pago + pend
+                
+            total_pendente += pend
+            total_faturado += f["valor_final"]
         
         # Calcula total a faturar baseado em agendamentos não faturados
         a_faturar_pac = [a for a in agendamentos if a["paciente_id"] == p["id"] and a["id"] not in agendamentos_faturados_ids]
@@ -93,8 +101,20 @@ def detalhes_financeiros_cliente(paciente_id: str):
     sb = get_supabase()
     
     # 1. Busca Faturamentos Existentes do Paciente
-    fats_res = sb.table("fin_faturamentos").select("*, procedimentos(nome)").eq("paciente_id", paciente_id).order("created_at", desc=True).execute()
+    fats_res = sb.table("fin_faturamentos").select("*, procedimentos(nome), fin_transacoes(valor, status, descricao)").eq("paciente_id", paciente_id).order("created_at", desc=True).execute()
     faturamentos = fats_res.data
+    
+    for fat in faturamentos:
+        txs = fat.get("fin_transacoes", []) or []
+        valor_pago = sum(t["valor"] for t in txs if t["status"] == "PAGO" and "Taxa de Operadora" not in (t.get("descricao") or ""))
+        valor_pendente = sum(t["valor"] for t in txs if t["status"] == "PENDENTE" and "Taxa de Operadora" not in (t.get("descricao") or ""))
+        fat["valor_pago"] = valor_pago
+        fat["saldo_devedor"] = valor_pendente
+        
+        if txs:
+            fat["valor_final"] = valor_pago + valor_pendente
+            
+        fat.pop("fin_transacoes", None)
     
     # 2. Busca Procedimentos a Faturar (Agendamentos concluidos sem Faturamento)
     agendamentos_faturados_ids = [f["agendamento_id"] for f in faturamentos if f.get("agendamento_id")]
@@ -120,6 +140,8 @@ def criar_faturamento(dados: FaturamentoCreate):
         payload.pop("procedimento_id", None)
         payload.pop("procedimentos_ids", None)
         payload.pop("valor_entrada", None)
+        payload.pop("taxa_porcentagem_entrada", None)
+        payload.pop("taxa_valor_entrada", None)
         payload.pop("data_vencimento_primeira", None)
         payload.pop("numero_parcelas", None)
         
@@ -164,11 +186,36 @@ def criar_faturamento(dados: FaturamentoCreate):
                 "faturamento_id": fat_id,
                 "descricao": f"Entrada (À Vista) - {dados.descricao}",
                 "valor": valor_entrada,
+                "taxa_porcentagem": dados.taxa_porcentagem_entrada,
+                "taxa_valor": dados.taxa_valor_entrada,
                 "data_vencimento": hoje.date().isoformat(),
                 "data_pagamento": hoje.date().isoformat(),
                 "conta_destino": "CLINICA",
-                "status": "PAGO"
+                "status": "PAGO",
+                "metodo_pagamento": dados.metodo_pagamento
             })
+            
+            # Se teve taxa na operadora, gerar a despesa correspondente (igual ao 'Dar Baixa')
+            if dados.taxa_valor_entrada and dados.taxa_valor_entrada > 0:
+                cat_taxa_res = sb.table("fin_categorias").select("id").eq("nome", "Taxa de Operadora").execute()
+                if cat_taxa_res.data:
+                    cat_taxa_id = cat_taxa_res.data[0]["id"]
+                else:
+                    nova_cat = sb.table("fin_categorias").insert({"nome": "Taxa de Operadora", "tipo": "DESPESA", "escopo": "CLINICA", "ativo": True}).execute()
+                    cat_taxa_id = nova_cat.data[0]["id"] if nova_cat.data else None
+                    
+                if cat_taxa_id:
+                    sb.table("fin_transacoes").insert({
+                        "categoria_id": cat_taxa_id,
+                        "faturamento_id": fat_id,
+                        "descricao": f"Taxa de Operadora ({dados.metodo_pagamento}) — Entrada",
+                        "valor": round(dados.taxa_valor_entrada, 2),
+                        "data_vencimento": hoje.date().isoformat(),
+                        "data_pagamento": hoje.date().isoformat(),
+                        "conta_origem": "CLINICA",
+                        "status": "PAGO",
+                        "metodo_pagamento": dados.metodo_pagamento,
+                    }).execute()
             
         if dados.data_vencimento_primeira:
             data_base = datetime.fromisoformat(str(dados.data_vencimento_primeira))
@@ -201,8 +248,8 @@ def criar_faturamento(dados: FaturamentoCreate):
         elif valor_entrada > 0:
             status_global = "PAGO_PARCIAL"
         else:
-            status_global = "PENDENTE"
-    
+            status_global = "ABERTO"  # Aceitando faturamento zerado/100% aberto
+            
         sb.table("fin_faturamentos").update({"status": status_global}).eq("id", fat_id).execute()
         faturamento_criado["status"] = status_global
             

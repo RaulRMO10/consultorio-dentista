@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
-import { User, Phone, Mail, MapPin, Calendar, Clock, ActivitySquare, Plus, CheckCircle, ArrowLeft, FileWarning, BriefcaseMedical } from 'lucide-react';
+import { User, Phone, Mail, MapPin, Calendar, Clock, ActivitySquare, Plus, CheckCircle, ArrowLeft, FileWarning, BriefcaseMedical, Wallet, ClipboardList, Heart } from 'lucide-react';
 import { Modal } from '../components/ui/Modal';
 import FaturamentoForm from '../components/ui/FaturamentoForm';
+import Odontograma from '../components/Odontograma';
+import PacienteFinanceiro from './PacienteFinanceiro';
+import AbaAnamnese from '../components/ui/AbaAnamnese';
 
 const PacienteDetalhes = () => {
     const { id } = useParams();
@@ -14,6 +17,9 @@ const PacienteDetalhes = () => {
     const [agendamentos, setAgendamentos] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+
+    // Sistema de Abas
+    const [activeTab, setActiveTab] = useState('GERAL'); // GERAL, ODONTOGRAMA, FINANCEIRO
 
     // Modal
     const [isOrcamentoModalOpen, setIsOrcamentoModalOpen] = useState(false);
@@ -143,87 +149,132 @@ const PacienteDetalhes = () => {
                 </div>
             </header>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Tabs de Navegação */}
+            <div className="flex overflow-x-auto custom-scrollbar mb-6 gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
+                <button
+                    onClick={() => setActiveTab('GERAL')}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm whitespace-nowrap transition-colors ${
+                        activeTab === 'GERAL' 
+                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20' 
+                        : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 border border-slate-200 dark:border-slate-700'
+                    }`}
+                >
+                    <ClipboardList size={18} /> Visão Geral & Prontuário
+                </button>
+                <button
+                    onClick={() => setActiveTab('ANAMNESE')}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm whitespace-nowrap transition-colors ${
+                        activeTab === 'ANAMNESE' 
+                        ? 'bg-rose-600 text-white shadow-md shadow-rose-500/20' 
+                        : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 border border-slate-200 dark:border-slate-700'
+                    }`}
+                >
+                    <Heart size={18} /> Saúde & Anamnese
+                </button>
+                <button
+                    onClick={() => setActiveTab('ODONTOGRAMA')}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm whitespace-nowrap transition-colors ${
+                        activeTab === 'ODONTOGRAMA' 
+                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20' 
+                        : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 border border-slate-200 dark:border-slate-700'
+                    }`}
+                >
+                    <ActivitySquare size={18} /> Odontograma / Raios-X
+                </button>
+                <button
+                    onClick={() => setActiveTab('FINANCEIRO')}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm whitespace-nowrap transition-colors ${
+                        activeTab === 'FINANCEIRO' 
+                        ? 'bg-emerald-600 text-white shadow-md shadow-emerald-500/20' 
+                        : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 border border-slate-200 dark:border-slate-700'
+                    }`}
+                >
+                    <Wallet size={18} /> Faturamento & Financeiro
+                </button>
+            </div>
 
-                {/* 1. Prontuário Clínico (Procedimentos) */}
-                <div className="lg:col-span-2 space-y-6">
-                    <section className="bg-white dark:bg-slate-800/80 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 lg:p-8">
-                        <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100 dark:border-slate-700/50">
-                            <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg">
-                                <BriefcaseMedical size={20} />
-                            </div>
-                            <h3 className="text-xl font-bold text-slate-800 dark:text-white">Procedimentos do Prontuário</h3>
-                        </div>
-
-                        {procedimentosPendentes.length > 0 ? (
-                            <div className="grid grid-cols-1 gap-4">
-                                {procedimentosPendentes.map(proc => (
-                                    <div key={proc.agendamento_id} className="relative p-5 border border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-2xl">
-                                        <div className="flex justify-between items-start mb-2">
-                                            <h4 className="font-bold text-indigo-900 dark:text-indigo-100 text-lg">
-                                                🦷 {proc.nome_procedimento}
-                                            </h4>
-                                            <span className="px-3 py-1 bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 text-[10px] font-bold rounded-full uppercase tracking-wider">
-                                                {proc.status_agendamento === 'aguardando' ? 'Aguardando' :
-                                                    proc.status_agendamento === 'em_atendimento' ? 'Em Atendimento' :
-                                                        proc.status_agendamento === 'confirmado' ? 'Confirmado' : 'Agendado'}
-                                            </span>
-                                        </div>
-                                        <p className="text-slate-600 dark:text-slate-400 text-sm mb-4">
-                                            Data da Sessão: <span className="font-medium text-slate-800 dark:text-slate-200">{new Date(proc.data_hora).toLocaleDateString()}</span> <br />
-                                            Dents. Resp: <span className="font-medium text-slate-800 dark:text-slate-200">{proc.dentista_nome}</span>
-                                            {proc.observacoes && <span className="block mt-2 italic text-slate-500">"{proc.observacoes}"</span>}
-                                        </p>
-                                        <div className="flex justify-end gap-2 pt-3 border-t border-indigo-200/50 dark:border-indigo-800/50">
-                                            <button
-                                                onClick={() => handleMarcarProcedimentoFeito(proc.agendamento_id, proc.procedimento_id)}
-                                                className="flex items-center gap-1.5 text-xs font-bold text-white bg-emerald-500 hover:bg-emerald-600 px-3 py-1.5 rounded-lg transition-colors shadow-sm shadow-emerald-500/20"
-                                            >
-                                                <CheckCircle size={14} /> Finalizar Clinicamente
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="text-center py-10 opacity-60">
-                                <CheckCircle size={32} className="mx-auto text-slate-400 mb-2" />
-                                <p className="text-slate-500 font-medium">Nenhum procedimento pendente na fila.</p>
-                            </div>
-                        )}
-                    </section>
-
-                    {procedimentosConcluidos.length > 0 && (
+            {/* Renderização Condicional das Abas */}
+            {activeTab === 'GERAL' && (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                    {/* 1. Prontuário Clínico (Procedimentos) */}
+                    <div className="lg:col-span-2 space-y-6">
                         <section className="bg-white dark:bg-slate-800/80 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 lg:p-8">
-                            <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">Histórico de Concluídos</h3>
-                            <div className="space-y-3">
-                                {procedimentosConcluidos.map(proc => (
-                                    <div key={proc.agendamento_id} className="flex justify-between items-center p-3 sm:p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800 opacity-80">
-                                        <div>
-                                            <h4 className="font-medium text-slate-700 dark:text-slate-300">
-                                                {proc.nome_procedimento}
-                                            </h4>
-                                            <p className="text-xs text-slate-500 mt-1">
-                                                Feito em {new Date(proc.data_hora).toLocaleDateString()} com {proc.dentista_nome}
+                            <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100 dark:border-slate-700/50">
+                                <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg">
+                                    <BriefcaseMedical size={20} />
+                                </div>
+                                <h3 className="text-xl font-bold text-slate-800 dark:text-white">Procedimentos Clínicos Abertos</h3>
+                            </div>
+
+                            {procedimentosPendentes.length > 0 ? (
+                                <div className="grid grid-cols-1 gap-4">
+                                    {procedimentosPendentes.map(proc => (
+                                        <div key={proc.agendamento_id} className="relative p-5 border border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-2xl">
+                                            <div className="flex justify-between items-start mb-2">
+                                                <h4 className="font-bold text-indigo-900 dark:text-indigo-100 text-lg">
+                                                    🦷 {proc.nome_procedimento}
+                                                </h4>
+                                                <span className="px-3 py-1 bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 text-[10px] font-bold rounded-full uppercase tracking-wider">
+                                                    {proc.status_agendamento === 'aguardando' ? 'Aguardando' :
+                                                        proc.status_agendamento === 'em_atendimento' ? 'Em Atendimento' :
+                                                            proc.status_agendamento === 'confirmado' ? 'Confirmado' : 'Agendado'}
+                                                </span>
+                                            </div>
+                                            <p className="text-slate-600 dark:text-slate-400 text-sm mb-4">
+                                                Data da Sessão: <span className="font-medium text-slate-800 dark:text-slate-200">{new Date(proc.data_hora).toLocaleDateString()}</span> <br />
+                                                Dents. Resp: <span className="font-medium text-slate-800 dark:text-slate-200">{proc.dentista_nome}</span>
+                                                {proc.observacoes && <span className="block mt-2 italic text-slate-500">"{proc.observacoes}"</span>}
                                             </p>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <button
-                                                onClick={() => handleReabrirProcedimento(proc.agendamento_id, proc.procedimento_id)}
-                                                className="text-[10px] font-bold text-slate-500 hover:text-indigo-600 underline"
-                                            >
-                                                Reabrir Sessão Clínica
-                                            </button>
-                                            <div className="text-emerald-600 dark:text-emerald-500">
-                                                <CheckCircle size={18} />
+                                            <div className="flex justify-end gap-2 pt-3 border-t border-indigo-200/50 dark:border-indigo-800/50">
+                                                <button
+                                                    onClick={() => handleMarcarProcedimentoFeito(proc.agendamento_id, proc.procedimento_id)}
+                                                    className="flex items-center gap-1.5 text-xs font-bold text-white bg-emerald-500 hover:bg-emerald-600 px-3 py-1.5 rounded-lg transition-colors shadow-sm shadow-emerald-500/20"
+                                                >
+                                                    <CheckCircle size={14} /> Finalizar Clinicamente
+                                                </button>
                                             </div>
                                         </div>
-                                    </div>
-                                ))}
-                            </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center py-10 opacity-60">
+                                    <CheckCircle size={32} className="mx-auto text-slate-400 mb-2" />
+                                    <p className="text-slate-500 font-medium">Nenhum procedimento pendente na fila.</p>
+                                </div>
+                            )}
                         </section>
-                    )}
-                </div>
+
+                        {procedimentosConcluidos.length > 0 && (
+                            <section className="bg-white dark:bg-slate-800/80 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 lg:p-8">
+                                <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">Histórico de Concluídos</h3>
+                                <div className="space-y-3">
+                                    {procedimentosConcluidos.map(proc => (
+                                        <div key={`concluido_${proc.agendamento_id}_${proc.procedimento_id}`} className="flex justify-between items-center p-3 sm:p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800 opacity-80">
+                                            <div>
+                                                <h4 className="font-medium text-slate-700 dark:text-slate-300">
+                                                    {proc.nome_procedimento}
+                                                </h4>
+                                                <p className="text-xs text-slate-500 mt-1">
+                                                    Feito em {new Date(proc.data_hora).toLocaleDateString()} com {proc.dentista_nome}
+                                                </p>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <button
+                                                    onClick={() => handleReabrirProcedimento(proc.agendamento_id, proc.procedimento_id)}
+                                                    className="text-[10px] font-bold text-slate-500 hover:text-indigo-600 underline"
+                                                >
+                                                    Reabrir Sessão
+                                                </button>
+                                                <div className="text-emerald-600 dark:text-emerald-500">
+                                                    <CheckCircle size={18} />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </section>
+                        )}
+                    </div>
 
                 {/* 2. Histórico de Agendamentos */}
                 <div className="lg:col-span-1 space-y-6">
@@ -232,7 +283,7 @@ const PacienteDetalhes = () => {
                             <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg">
                                 <Calendar size={20} />
                             </div>
-                            <h3 className="text-xl font-bold text-slate-800 dark:text-white">Consultas</h3>
+                            <h3 className="text-xl font-bold text-slate-800 dark:text-white">Consultas Marcadas</h3>
                         </div>
 
                         <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
@@ -243,7 +294,7 @@ const PacienteDetalhes = () => {
                                 return (
                                     <div
                                         key={ag.id}
-                                        className={`p-4 border rounded-xl flex gap-4 \${
+                                        className={`p-4 border rounded-xl flex gap-4 ${
                                             isConcluido ? 'border-emerald-200 bg-emerald-50/30' : 
                                             isPast ? 'border-slate-200 bg-slate-50/50 opacity-60' : 'border-indigo-200 bg-indigo-50/20'
                                         } dark:border-slate-700 dark:bg-transparent`}
@@ -272,6 +323,30 @@ const PacienteDetalhes = () => {
                     </section>
                 </div>
             </div>
+            )}
+
+            {/* Renderização Condicional da Aba Anamnese */}
+            {activeTab === 'ANAMNESE' && (
+                <AbaAnamnese pacienteId={id} />
+            )}
+
+            {/* Renderização Condicional da Aba Odontograma */}
+            {activeTab === 'ODONTOGRAMA' && (
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+                    <Odontograma pacienteId={id} />
+                </div>
+            )}
+
+            {/* Renderização Condicional da Aba Financeira */}
+            {activeTab === 'FINANCEIRO' && (
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+                    <PacienteFinanceiro 
+                        pacienteId={id} 
+                        paciente={paciente} 
+                        onRequestNovoOrcamento={() => setIsOrcamentoModalOpen(true)} 
+                    />
+                </div>
+            )}
 
             {/* Modal Novo Orçamento */}
             <Modal

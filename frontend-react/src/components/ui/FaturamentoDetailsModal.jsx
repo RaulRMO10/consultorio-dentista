@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { CheckCircle2, Circle, Clock, AlertCircle } from 'lucide-react';
 import api from '../../services/api';
 
-const FaturamentoDetailsModal = ({ faturamento, onClose }) => {
+const FaturamentoDetailsModal = ({ faturamento, onClose, hideTaxa = false }) => {
     const [parcelas, setParcelas] = useState([]);
     const [loading, setLoading] = useState(true);
     const [processingId, setProcessingId] = useState(null);
@@ -25,8 +25,12 @@ const FaturamentoDetailsModal = ({ faturamento, onClose }) => {
         try {
             setLoading(true);
             const res = await api.get(`/api/financeiro/consultorio/?faturamento_id=${faturamento.id}`);
+            
+            // Filtra para remover da tela do paciente transações lançadas como Despesa (Taxa de Máquina)
+            const parcelasLimpas = res.data.filter(tx => !tx.descricao.includes('Taxa de Operadora'));
+            
             // Force sort by due date
-            const sorted = res.data.sort((a, b) => new Date(a.data_vencimento) - new Date(b.data_vencimento));
+            const sorted = parcelasLimpas.sort((a, b) => new Date(a.data_vencimento) - new Date(b.data_vencimento));
             setParcelas(sorted);
         } catch (err) {
             console.error(err);
@@ -90,6 +94,19 @@ const FaturamentoDetailsModal = ({ faturamento, onClose }) => {
     };
 
     const handleConfirmPayment = async (txId) => {
+        // Validações rigorosas antes de ir para o backend
+        if (!paymentForm.metodo_pagamento || paymentForm.metodo_pagamento.trim() === '') {
+            setError("Por favor, selecione uma Forma de Pagamento para registrar a baixa.");
+            return;
+        }
+        
+        if ((parseFloat(paymentForm.valor_pago) || 0) <= 0 && (parseFloat(paymentForm.valor_desconto) || 0) <= 0) {
+            setError("Informe um Valor Recebido ou um Desconto válido, maior que zero.");
+            return;
+        }
+
+        setError(null); // Clear errors
+
         try {
             setProcessingId(txId);
             await api.post(`/api/financeiro/consultorio/${txId}/pagar`, {
@@ -161,8 +178,10 @@ const FaturamentoDetailsModal = ({ faturamento, onClose }) => {
                         <p className="font-medium text-slate-900 dark:text-white">{faturamento.procedimentos?.nome || 'Personalizado'}</p>
                     </div>
                     <div>
-                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Valor Total</p>
-                        <p className="font-bold text-slate-900 dark:text-white">{formatCurrency(faturamento.valor_final)}</p>
+                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Valor Total (Cobrado)</p>
+                        <p className="font-bold text-slate-900 dark:text-white">
+                            {parcelas.length > 0 ? formatCurrency(valorPago + valorPendente) : formatCurrency(faturamento.valor_final)}
+                        </p>
                     </div>
                     <div>
                         <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Forma de Pagto</p>
@@ -212,7 +231,7 @@ const FaturamentoDetailsModal = ({ faturamento, onClose }) => {
                                             </td>
                                             <td className="px-4 py-3 font-semibold text-slate-900 dark:text-white">
                                                 {formatCurrency(p.valor)}
-                                                {p.taxa_valor > 0 && (
+                                                {!hideTaxa && p.taxa_valor > 0 && (
                                                     <span className="block text-[10px] text-red-500 font-medium">-{formatCurrency(p.taxa_valor)} taxa</span>
                                                 )}
                                             </td>
@@ -229,7 +248,7 @@ const FaturamentoDetailsModal = ({ faturamento, onClose }) => {
                                             </td>
                                             <td className="px-4 py-3 text-right">
                                                 {p.status === 'PAGO' ? (
-                                                    <span className="text-slate-400 text-xs font-medium">Liquidado<br /><span className="text-[10px]">Líq: {formatCurrency(p.valor - (p.taxa_valor || 0))}</span></span>
+                                                    <span className="text-slate-400 text-xs font-medium">Liquidado</span>
                                                 ) : payingTxId === p.id ? (
                                                     <span className="text-indigo-600 dark:text-indigo-400 text-xs font-bold">Em Aberto ▼</span>
                                                 ) : (
@@ -338,29 +357,21 @@ const FaturamentoDetailsModal = ({ faturamento, onClose }) => {
                                                                 className="w-full px-3 py-2 text-sm border border-emerald-300 dark:border-emerald-700 rounded-lg focus:ring-2 focus:ring-emerald-500/50 outline-none bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-300 font-bold"
                                                             />
                                                         </div>
-                                                        <div className="w-full flex-1 min-w-[280px] flex items-center justify-between bg-emerald-50/50 dark:bg-emerald-900/10 p-3 rounded-xl border border-emerald-100 dark:border-emerald-800/50 mt-2">
-                                                            <div>
-                                                                <p className="text-xs text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wider mb-0.5">Líquido na Conta</p>
-                                                                <p className="text-lg font-black text-emerald-700 dark:text-emerald-300 leading-none">
-                                                                    {formatCurrency(paymentForm.valor_pago - paymentForm.taxa_valor)}
-                                                                </p>
-                                                            </div>
-                                                            <div className="flex gap-2">
-                                                                <button
-                                                                    onClick={() => setPayingTxId(null)}
-                                                                    className="px-3 py-2 text-sm font-medium text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-                                                                >
-                                                                    Cancelar
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => handleConfirmPayment(p.id)}
-                                                                    disabled={processingId === p.id}
-                                                                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl shadow-md shadow-emerald-500/20 disabled:opacity-50 transition-all flex items-center gap-2"
-                                                                >
-                                                                    {processingId === p.id && <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>}
-                                                                    Confirmar
-                                                                </button>
-                                                            </div>
+                                                        <div className="w-full mt-4 flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800/50">
+                                                            <button
+                                                                onClick={() => setPayingTxId(null)}
+                                                                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                                                            >
+                                                                Cancelar
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleConfirmPayment(p.id)}
+                                                                disabled={processingId === p.id}
+                                                                className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-lg shadow-sm disabled:opacity-50 transition-all flex items-center gap-2"
+                                                            >
+                                                                {processingId === p.id && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>}
+                                                                Confirmar Baixa
+                                                            </button>
                                                         </div>
                                                     </div>
 

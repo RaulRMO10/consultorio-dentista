@@ -33,7 +33,7 @@ const Usuarios = () => {
         if (selectedUsuario) {
             await api.put(`/auth/usuarios/${selectedUsuario.id}`, {
                 nome: formData.nome,
-                email: formData.email,
+                username: formData.username,
                 role: formData.role,
                 ativo: formData.ativo
             });
@@ -44,7 +44,7 @@ const Usuarios = () => {
         } else {
             await api.post('/auth/usuarios', {
                 nome: formData.nome,
-                email: formData.email,
+                username: formData.username,
                 senha: formData.senha,
                 role: formData.role
             });

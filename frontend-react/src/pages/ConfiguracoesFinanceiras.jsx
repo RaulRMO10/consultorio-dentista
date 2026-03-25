@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../services/api';
-import { Settings, CreditCard, Percent, Plus, Edit2, Trash2, Power, Briefcase, FileWarning, Tags, ArrowRightLeft, TrendingDown, Building2, UserCircle } from 'lucide-react';
+import { Settings, CreditCard, Percent, Plus, Edit2, Trash2, Power, Briefcase, FileWarning, Tags, ArrowRightLeft, TrendingDown, Building2, UserCircle, FlaskConical, Phone, Mail, User } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { Input } from '../components/ui/Input';
@@ -216,9 +216,72 @@ const FormaPagamentoForm = ({ initialData, onSuccess, onCancel }) => {
     );
 };
 
+// ==========================================
+// FORM DE LABORATÓRIO
+// ==========================================
+const LaboratorioForm = ({ initialData, onSuccess, onCancel }) => {
+    const [formData, setFormData] = useState({ nome: '', telefone: '', email: '', responsavel: '' });
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        if (initialData) {
+            setFormData({
+                nome: initialData.nome || '',
+                telefone: initialData.telefone || '',
+                email: initialData.email || '',
+                responsavel: initialData.responsavel || '',
+            });
+        } else {
+            setFormData({ nome: '', telefone: '', email: '', responsavel: '' });
+        }
+    }, [initialData]);
+
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setError(null);
+        try {
+            if (initialData?.id) {
+                await api.put(`/api/protetico/laboratorios/${initialData.id}`, formData);
+            } else {
+                await api.post('/api/protetico/laboratorios', formData);
+            }
+            onSuccess();
+        } catch (err) {
+            setError(err.response?.data?.detail || 'Erro ao salvar laboratório.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+                <div className="p-3 bg-red-50 text-red-700 text-sm rounded-xl flex items-center gap-2">
+                    <FileWarning size={16} /> {error}
+                </div>
+            )}
+            <Input label="Nome do Laboratório *" name="nome" required placeholder="Ex: Lab Prótese Central" value={formData.nome} onChange={handleChange} />
+            <Input label="Responsável" name="responsavel" placeholder="Nome do responsável" value={formData.responsavel} onChange={handleChange} />
+            <Input label="Telefone" name="telefone" placeholder="(00) 00000-0000" value={formData.telefone} onChange={handleChange} />
+            <Input label="E-mail" name="email" type="email" placeholder="lab@email.com" value={formData.email} onChange={handleChange} />
+            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+                <Button variant="outline" type="button" onClick={onCancel} disabled={loading}>Cancelar</Button>
+                <Button variant="primary" type="submit" disabled={loading}>{loading ? 'Salvando...' : 'Salvar Laboratório'}</Button>
+            </div>
+        </form>
+    );
+};
+
 const ConfiguracoesFinanceiras = () => {
     // ESTADOS COMUNS
-    const [globalTab, setGlobalTab] = useState('CATEGORIAS'); // CATEGORIAS ou RECEBIMENTOS
+    const [globalTab, setGlobalTab] = useState('CATEGORIAS'); // CATEGORIAS, RECEBIMENTOS ou LABORATORIOS
 
     // ESTADOS FORMAS PGTO
     const [metodos, setMetodos] = useState([]);
@@ -232,6 +295,12 @@ const ConfiguracoesFinanceiras = () => {
     const [activeCatTab, setActiveCatTab] = useState(TABS_CATEGORIAS[0].id);
     const [isCatModalOpen, setIsCatModalOpen] = useState(false);
     const [editCategoria, setEditCategoria] = useState(null);
+
+    // ESTADOS LABORATÓRIOS
+    const [laboratorios, setLaboratorios] = useState([]);
+    const [loadingLabs, setLoadingLabs] = useState(false);
+    const [isLabModalOpen, setIsLabModalOpen] = useState(false);
+    const [editLab, setEditLab] = useState(null);
 
     const activeTabInfo = TABS_CATEGORIAS.find(t => t.id === activeCatTab);
 
@@ -291,9 +360,35 @@ const ConfiguracoesFinanceiras = () => {
         }
     };
 
+    // ==========================================
+    // ACTIONS LABORATÓRIOS
+    // ==========================================
+    const fetchLaboratorios = async () => {
+        try {
+            setLoadingLabs(true);
+            const res = await api.get('/api/protetico/laboratorios');
+            setLaboratorios(res.data || []);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoadingLabs(false);
+        }
+    };
+
+    const handleDeleteLab = async (item) => {
+        if (!window.confirm(`Deseja desativar o laboratório "${item.nome}"?`)) return;
+        try {
+            await api.delete(`/api/protetico/laboratorios/${item.id}`);
+            fetchLaboratorios();
+        } catch (err) {
+            alert('Erro ao desativar laboratório.');
+        }
+    };
+
     useEffect(() => {
         if (globalTab === 'RECEBIMENTOS') fetchMetodos();
         if (globalTab === 'CATEGORIAS') fetchCategorias();
+        if (globalTab === 'LABORATORIOS') fetchLaboratorios();
     }, [globalTab]);
 
     // Filtra as categorias ativas para a tab selecionada
@@ -307,9 +402,9 @@ const ConfiguracoesFinanceiras = () => {
                         <div className="p-3 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl">
                             <Settings size={24} />
                         </div>
-                        Configurações Financeiras
+                        Configurações
                     </h2>
-                    <p className="text-slate-500 dark:text-slate-400 mt-2">Gerencie as categorias de lançamentos e suas formas de recebimento / taxas.</p>
+                    <p className="text-slate-500 dark:text-slate-400 mt-2">Gerencie as categorias de lançamentos, formas de recebimento e laboratórios.</p>
                 </div>
             </header>
 
@@ -326,6 +421,12 @@ const ConfiguracoesFinanceiras = () => {
                     className={`pb-4 px-2 font-bold text-sm transition-colors border-b-2 ${globalTab === 'RECEBIMENTOS' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
                 >
                     Formas de Recebimento
+                </button>
+                <button
+                    onClick={() => setGlobalTab('LABORATORIOS')}
+                    className={`pb-4 px-2 font-bold text-sm transition-colors border-b-2 flex items-center gap-2 ${globalTab === 'LABORATORIOS' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+                >
+                    <FlaskConical size={15} /> Laboratórios
                 </button>
             </div>
 
@@ -463,6 +564,56 @@ const ConfiguracoesFinanceiras = () => {
                 </div>
             )}
 
+            {globalTab === 'LABORATORIOS' && (
+                <div className="animate-in fade-in duration-300">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm overflow-hidden">
+                        <div className="p-5 border-b border-slate-100 dark:border-slate-700/50 flex justify-between items-center">
+                            <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                                <FlaskConical size={18} className="text-indigo-500" /> Laboratórios Parceiros
+                            </h3>
+                            <Button variant="primary" size="sm" icon={Plus} onClick={() => { setEditLab(null); setIsLabModalOpen(true); }}>
+                                Novo Laboratório
+                            </Button>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left">
+                                <thead>
+                                    <tr className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 text-xs uppercase tracking-wider">
+                                        <th className="px-6 py-4 font-semibold">Nome</th>
+                                        <th className="px-6 py-4 font-semibold">Responsável</th>
+                                        <th className="px-6 py-4 font-semibold">Telefone</th>
+                                        <th className="px-6 py-4 font-semibold">E-mail</th>
+                                        <th className="px-6 py-4 font-semibold text-right">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                    {loadingLabs ? (
+                                        <tr><td colSpan="5" className="px-6 py-8 text-center text-slate-500">Carregando...</td></tr>
+                                    ) : laboratorios.length === 0 ? (
+                                        <tr><td colSpan="5" className="px-6 py-12 text-center text-slate-400">Nenhum laboratório cadastrado.</td></tr>
+                                    ) : (
+                                        laboratorios.map(lab => (
+                                            <tr key={lab.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                                                <td className="px-6 py-4 font-bold text-slate-900 dark:text-white">{lab.nome}</td>
+                                                <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">{lab.responsavel || '—'}</td>
+                                                <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">{lab.telefone || '—'}</td>
+                                                <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">{lab.email || '—'}</td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <button onClick={() => { setEditLab(lab); setIsLabModalOpen(true); }} className="p-2 text-slate-400 hover:text-indigo-600 rounded-lg transition-colors"><Edit2 size={16} /></button>
+                                                        <button onClick={() => handleDeleteLab(lab)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/40 rounded-lg transition-colors"><Trash2 size={16} /></button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* MODALS */}
             <Modal isOpen={isCatModalOpen} onClose={() => setIsCatModalOpen(false)} title={editCategoria ? 'Editar Categoria' : `Nova Categoria em ${activeTabInfo.label}`} maxWidth="max-w-md">
                 <CategoriaForm
@@ -478,6 +629,13 @@ const ConfiguracoesFinanceiras = () => {
                     initialData={editMetodo}
                     onSuccess={() => { setIsMetodoModalOpen(false); fetchMetodos(); }}
                     onCancel={() => setIsMetodoModalOpen(false)}
+                />
+            </Modal>
+            <Modal isOpen={isLabModalOpen} onClose={() => setIsLabModalOpen(false)} title={editLab ? 'Editar Laboratório' : 'Novo Laboratório'} maxWidth="max-w-md">
+                <LaboratorioForm
+                    initialData={editLab}
+                    onSuccess={() => { setIsLabModalOpen(false); fetchLaboratorios(); }}
+                    onCancel={() => setIsLabModalOpen(false)}
                 />
             </Modal>
         </div>

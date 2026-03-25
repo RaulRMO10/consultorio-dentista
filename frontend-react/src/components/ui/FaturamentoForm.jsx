@@ -13,6 +13,8 @@ const FaturamentoForm = ({ onSave, onCancel, initialContext = null, updateMode =
         valor_desconto: 0,
         valor_final: 0,
         valor_entrada: 0,
+        taxa_porcentagem_entrada: 0,
+        taxa_valor_entrada: 0,
         data_vencimento_primeira: '',
         metodo_pagamento: '',
         numero_parcelas: 1
@@ -34,6 +36,7 @@ const FaturamentoForm = ({ onSave, onCancel, initialContext = null, updateMode =
 
     const selectedMethodObj = getSelectedMethodObj();
     const isParcelavel = selectedMethodObj ? (selectedMethodObj.tipo === 'CREDITO' || selectedMethodObj.tipo === 'BOLETO') : false;
+    const isMachineSelected = selectedMethodObj ? ['CREDITO', 'DEBITO'].includes(selectedMethodObj.tipo) : false;
 
     useEffect(() => {
         const loadDependencies = async () => {
@@ -59,7 +62,9 @@ const FaturamentoForm = ({ onSave, onCancel, initialContext = null, updateMode =
                         valor_desconto: initialContext.valor_desconto || 0,
                         valor_final: initialContext.valor_final || 0,
                         valor_entrada: initialContext.valor_entrada || 0,
-                        metodo_pagamento: initialContext.metodo_pagamento || 'PIX',
+                        taxa_porcentagem_entrada: 0,
+                        taxa_valor_entrada: 0,
+                        metodo_pagamento: initialContext.metodo_pagamento || '',
                         numero_parcelas: initialContext.numero_parcelas || 1,
                     }));
                 }
@@ -72,14 +77,17 @@ const FaturamentoForm = ({ onSave, onCancel, initialContext = null, updateMode =
         loadDependencies();
     }, [initialContext]);
 
-    // Engine to automatically calculate final price
+    // Calcula valor final inicial se vier pre-preenchido
     useEffect(() => {
-        const original = parseFloat(formData.valor_original) || 0;
-        const calcDesconto = parseFloat(formData.valor_desconto) || 0;
-        const d_final = original - calcDesconto;
-
-        setFormData(prev => ({ ...prev, valor_final: d_final > 0 ? d_final : 0 }));
-    }, [formData.valor_original, formData.valor_desconto]);
+        if (isPrefilled && initialContext?.id) {
+            setFormData(prev => {
+                const original = parseFloat(prev.valor_original) || 0;
+                const desc = parseFloat(prev.valor_desconto) || 0;
+                const final = original - desc;
+                return { ...prev, valor_final: final > 0 ? final : 0 };
+            });
+        }
+    }, [isPrefilled, initialContext]);
 
     // Resetar parcelas se mudar para um método não parcelável
     useEffect(() => {
@@ -115,16 +123,39 @@ const FaturamentoForm = ({ onSave, onCancel, initialContext = null, updateMode =
         });
     };
 
-    const handleApplyTenPercentDiscount = (e) => {
-        e.preventDefault();
-        const base = parseFloat(formData.valor_original) || 0;
-        const discount = base * 0.10;
-        setFormData({ ...formData, valor_desconto: discount.toFixed(2) });
-    };
+    // Engine to automatically calculate final price reactively
+    useEffect(() => {
+        const original = parseFloat(formData.valor_original) || 0;
+
+        setFormData(prev => {
+            // Só atualiza se for diferente, para evitar loops
+            const calculated = original > 0 ? original : 0;
+            if (prev.valor_final !== calculated) {
+                return { ...prev, valor_final: calculated };
+            }
+            return prev;
+        });
+    }, [formData.valor_original]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData({ ...formData, [name]: value });
+        setFormData(prev => {
+            const fd = { ...prev, [name]: value };
+            
+            // Auto recálculo da taxa se mexer no valor de entrada
+            if (name === 'valor_entrada') {
+                const val = parseFloat(value) || 0;
+                fd.taxa_valor_entrada = Number(((val * fd.taxa_porcentagem_entrada) / 100).toFixed(2));
+            }
+            // Auto recálculo se mudar o método de pagamento
+            if (name === 'metodo_pagamento') {
+                const novoMetodo = formasPagamento.find(f => f.nome === value);
+                const perc = novoMetodo ? (novoMetodo.taxa_padrao_porcentagem || 0) : 0;
+                fd.taxa_porcentagem_entrada = perc;
+                fd.taxa_valor_entrada = Number(((parseFloat(fd.valor_entrada) || 0) * perc / 100).toFixed(2));
+            }
+            return fd;
+        });
     };
 
     const handleSubmit = async (e) => {
@@ -152,11 +183,12 @@ const FaturamentoForm = ({ onSave, onCancel, initialContext = null, updateMode =
                 procedimentos_ids: selectedProcs.map(p => p.id),
                 descricao: formData.descricao,
                 valor_original: parseFloat(formData.valor_original),
-                valor_desconto: parseFloat(formData.valor_desconto),
                 valor_final: parseFloat(formData.valor_final),
                 valor_entrada: parseFloat(formData.valor_entrada) || 0,
+                taxa_porcentagem_entrada: parseFloat(formData.taxa_porcentagem_entrada) || 0,
+                taxa_valor_entrada: parseFloat(formData.taxa_valor_entrada) || 0,
                 data_vencimento_primeira: formData.data_vencimento_primeira || null,
-                metodo_pagamento: formData.metodo_pagamento,
+                metodo_pagamento: formData.metodo_pagamento || "Não informado",
                 numero_parcelas: parseInt(formData.numero_parcelas, 10)
             };
 
@@ -244,8 +276,8 @@ const FaturamentoForm = ({ onSave, onCancel, initialContext = null, updateMode =
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-4 rounded-xl border border-slate-200 dark:bg-slate-800/50 dark:border-slate-700">
-                <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Valor Original (R$)</label>
+                <div className="col-span-1 md:col-span-2">
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Valor do Orçamento Negociado (R$)</label>
                     <input
                         type="number"
                         step="0.01"
@@ -253,79 +285,76 @@ const FaturamentoForm = ({ onSave, onCancel, initialContext = null, updateMode =
                         required
                         value={formData.valor_original}
                         onChange={handleChange}
-                        className="w-full bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl focus:ring-emerald-500"
+                        className="w-full bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl focus:ring-emerald-500 font-bold"
                     />
                 </div>
 
-                <div>
-                    <div className="flex justify-between items-center mb-1">
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Desconto (R$)</label>
-                        <button
-                            type="button"
-                            onClick={handleApplyTenPercentDiscount}
-                            className="text-xs text-emerald-600 hover:text-emerald-700 flex items-center font-bold"
-                        >
-                            <Percent size={12} className="mr-1" />
-                            Aplicar 10%
-                        </button>
-                    </div>
-                    <input
-                        type="number"
-                        step="0.01"
-                        name="valor_desconto"
-                        value={formData.valor_desconto}
-                        onChange={handleChange}
-                        className="w-full bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl focus:ring-emerald-500"
-                    />
-                </div>
+                <div className="col-span-1 md:col-span-2 bg-slate-100/50 dark:bg-slate-900/10 border border-slate-200 dark:border-slate-700 rounded-xl p-4 mt-2">
+                    <div className="flex flex-wrap items-end gap-4 animate-in slide-in-from-top-2 duration-200">
+                        <div className="w-full sm:w-auto min-w-[140px]">
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Forma de Pagto (Entrada)</label>
+                            <select
+                                name="metodo_pagamento"
+                                value={formData.metodo_pagamento}
+                                onChange={handleChange}
+                                className="w-full px-3 py-2 text-sm border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                            >
+                                <option value="">Pendente a Definir...</option>
+                                {formasPagamento.map(f => (
+                                    <option key={f.id} value={f.nome}>{f.nome} ({f.tipo})</option>
+                                ))}
+                            </select>
+                        </div>
 
-                <div className="md:col-span-2">
-                    <label className="block text-sm font-bold text-slate-900 dark:text-white mb-1">Valor Final Faturado</label>
-                    <div className="w-full bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold p-3 rounded-xl text-lg flex items-center justify-between">
-                        R$ {(parseFloat(formData.valor_final) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        {formData.metodo_pagamento && (
+                            <>
+                                {isMachineSelected && (
+                                    <div className="w-full sm:w-24">
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Taxa Máq (%)</label>
+                                        <input
+                                            type="number" step="0.01" min="0" name="taxa_porcentagem_entrada"
+                                            value={formData.taxa_porcentagem_entrada}
+                                            onChange={(e) => {
+                                                const perc = Math.max(0, parseFloat(e.target.value) || 0);
+                                                setFormData(prev => ({
+                                                    ...prev,
+                                                    taxa_porcentagem_entrada: perc,
+                                                    taxa_valor_entrada: Number(((parseFloat(prev.valor_entrada || 0) * perc) / 100).toFixed(2))
+                                                }));
+                                            }}
+                                            className="w-full px-3 py-2 text-sm border border-red-200 dark:border-red-900/50 rounded-lg focus:ring-2 focus:ring-red-500/50 outline-none bg-red-50 dark:bg-red-900/10 text-red-700 dark:text-red-400 font-medium"
+                                        />
+                                    </div>
+                                )}
+
+                                <div className="w-full sm:w-32">
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Valor Recebido</label>
+                                    <input
+                                        type="number" step="0.01" min="0" name="valor_entrada" max={parseFloat(formData.valor_original) || 0}
+                                        value={formData.valor_entrada}
+                                        onChange={handleChange}
+                                        className="w-full px-3 py-2 text-sm border border-emerald-300 dark:border-emerald-700 rounded-lg focus:ring-2 focus:ring-emerald-500/50 outline-none bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-300 font-bold"
+                                    />
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-4 rounded-xl border border-slate-200 dark:bg-slate-800/50 dark:border-slate-700">
                 <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Forma de Pagamento Principal</label>
-                    <select
-                        name="metodo_pagamento"
-                        value={formData.metodo_pagamento}
-                        onChange={handleChange}
-                        required
-                        className="w-full bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl focus:ring-emerald-500 font-medium"
-                    >
-                        <option value="">Selecione...</option>
-                        {formasPagamento.map(f => (
-                            <option key={f.id} value={f.nome}>{f.nome} ({f.tipo})</option>
-                        ))}
-                    </select>
+                    <label className="block text-sm font-bold text-slate-900 dark:text-white mb-1">Resumo Total da Operação</label>
+                    <div className="w-full bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold p-3 rounded-xl text-lg flex items-center justify-between">
+                         <span>Valor Final Contratado: R$ {(parseFloat(formData.valor_final) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    </div>
                 </div>
 
                 {formData.metodo_pagamento && (
                     <>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                                {isParcelavel ? "Valor de Entrada (Opcional - R$)" : "Valor Pago Agora (Opcional - R$)"}
-                            </label>
-                            <input
-                                type="number"
-                                step="0.01"
-                                name="valor_entrada"
-                                value={formData.valor_entrada}
-                                onChange={handleChange}
-                                placeholder="0.00"
-                                className="w-full bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl focus:ring-emerald-500"
-                            />
-                            <p className="mt-1 text-xs text-slate-500">
-                                {isParcelavel ? "Valor pago à vista no ato para abater o total." : "Quantia que o paciente está entregando agora."}
-                            </p>
-                        </div>
-                        <div>
+                        <div className="col-span-1 md:col-span-2">
                             <label className="block text-sm font-bold text-slate-900 dark:text-white mb-1">
-                                {isParcelavel ? "Restante a Parcelar" : "Saldo Devedor Pendente"}
+                                Saldo Devedor Restante
                             </label>
                             <div className="w-full bg-amber-50 text-amber-800 border border-amber-200 font-bold p-3 rounded-xl text-lg flex items-center justify-between">
                                 R$ {Math.max(0, (parseFloat(formData.valor_final) || 0) - (parseFloat(formData.valor_entrada) || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -333,31 +362,31 @@ const FaturamentoForm = ({ onSave, onCancel, initialContext = null, updateMode =
                         </div>
 
                         {isParcelavel && (
-                            <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 p-4 mt-2 bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-800/50 rounded-xl">
+                            <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 p-4 mt-2 bg-amber-50/20 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-800/50 rounded-xl">
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Pagamento Será</label>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Saldo Parcelado Em</label>
                                     <select
                                         name="numero_parcelas"
                                         value={formData.numero_parcelas}
                                         onChange={handleChange}
-                                        className="w-full bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl focus:ring-emerald-500"
+                                        className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-lg focus:ring-amber-500"
                                     >
                                         <option value={1}>À Vista (1x)</option>
-                                        {[2, 3, 4, 5, 6, 8, 10, 12].map(x => (
+                                        {[2, 3, 4, 5, 6, 8, 10, 12, 18, 24].map(x => (
                                             <option key={x} value={x}>Parcelado em {x}x parcelas</option>
                                         ))}
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Data do 1º Vencimento / Débito</label>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Data do 1º Vencimento Pendente</label>
                                     <input
                                         type="date"
                                         name="data_vencimento_primeira"
                                         value={formData.data_vencimento_primeira}
                                         onChange={handleChange}
-                                        className="w-full bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl focus:ring-emerald-500"
+                                        className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-lg focus:ring-amber-500"
                                     />
-                                    <p className="mt-1 text-xs text-slate-500">Deixe em branco para considerar data de hoje.</p>
+                                    <p className="mt-1 text-xs text-slate-500">Deixe em branco para considerar data de hoje + 30 dias.</p>
                                 </div>
                             </div>
                         )}

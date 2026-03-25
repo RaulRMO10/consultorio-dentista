@@ -68,24 +68,31 @@ def resumo_dashboard_global(mes: Optional[int] = None, ano: Optional[int] = None
     res = sb.table("fin_transacoes").select("*, fin_categorias(nome, tipo, escopo)").gte("data_vencimento", f"{ano}-{mes:02d}-01").lt("data_vencimento", f"{prox_ano}-{prox_mes:02d}-01").execute()
     txs = res.data
 
+    # Helper seguro para checar tipo e escopo da categoria, já que fin_categorias pode ser None em faturamentos avulsos
+    def get_cat_tipo(t):
+        return t.get("fin_categorias", {}).get("tipo") if t.get("fin_categorias") else None
+        
+    def get_cat_escopo(t):
+        return t.get("fin_categorias", {}).get("escopo") if t.get("fin_categorias") else None
+
     # KPI 1: Faturamento Bruto (Entrou na conta clínica - apenas PAGO)
-    faturamento_bruto = sum(t["valor"] for t in txs if t["fin_categorias"]["tipo"] == "RECEITA" and t["conta_destino"] == "CLINICA" and t["status"] == "PAGO")
+    faturamento_bruto = sum(t["valor"] for t in txs if get_cat_tipo(t) == "RECEITA" and t.get("conta_destino") == "CLINICA" and t.get("status") == "PAGO")
     
     # KPI 2: Despesas da Clínica pagas (inclui taxas de operadora registradas como despesa real)
-    despesas_clinica = sum(t["valor"] for t in txs if t["fin_categorias"]["tipo"] == "DESPESA" and t["fin_categorias"]["escopo"] == "CLINICA" and t["status"] == "PAGO")
+    despesas_clinica = sum(t["valor"] for t in txs if get_cat_tipo(t) == "DESPESA" and get_cat_escopo(t) == "CLINICA" and t.get("status") == "PAGO")
     lucro_operacional = faturamento_bruto - despesas_clinica
 
     # KPI 3: A Receber no Mês (Inadimplência ou a Vencer)
-    a_receber = sum(t["valor"] for t in txs if t["fin_categorias"]["tipo"] == "RECEITA" and t["status"] == "PENDENTE")
+    a_receber = sum(t["valor"] for t in txs if get_cat_tipo(t) == "RECEITA" and t.get("status") == "PENDENTE")
 
     # KPI 4: Aportes (O que o dentista injetou do próprio bolso na clínica)
-    aportes = sum(t["valor"] for t in txs if t["conta_origem"] == "PESSOAL" and t["conta_destino"] == "CLINICA" and t["status"] == "PAGO")
+    aportes = sum(t["valor"] for t in txs if t.get("conta_origem") == "PESSOAL" and t.get("conta_destino") == "CLINICA" and t.get("status") == "PAGO")
 
     # KPI 5: Retiradas / Pró-Labore (O que tirou da clínica pro bolso)
-    retiradas = sum(t["valor"] for t in txs if t["conta_origem"] == "CLINICA" and t["conta_destino"] == "PESSOAL" and t["status"] == "PAGO")
+    retiradas = sum(t["valor"] for t in txs if t.get("conta_origem") == "CLINICA" and t.get("conta_destino") == "PESSOAL" and t.get("status") == "PAGO")
 
     # KPI 6: Despesas Pessoais
-    despesas_pessoais = sum(t["valor"] for t in txs if t["fin_categorias"]["tipo"] == "DESPESA" and t["fin_categorias"]["escopo"] == "PESSOAL" and t["status"] == "PAGO")
+    despesas_pessoais = sum(t["valor"] for t in txs if get_cat_tipo(t) == "DESPESA" and get_cat_escopo(t) == "PESSOAL" and t.get("status") == "PAGO")
 
     # KPI 7: Caixa Pessoal Disponível Mensal (O que sobrou da retirada após as contas dele)
     caixa_pessoal = retiradas - despesas_pessoais
@@ -300,14 +307,20 @@ def pagar_parcela(tx_id: str, dados: Optional[PagamentoTx] = None):
                     novo_valor = round(prox["valor"] + residual, 2)
                     sb.table("fin_transacoes").update({"valor": novo_valor}).eq("id", prox["id"]).execute()
 
-        # Re-avalia o Status do Faturamento Global
+        # Re-avalia o Status do Faturamento Global e garante a integridade do valor no Banco
         if fat_id:
-            todas_txs = sb.table("fin_transacoes").select("status").eq("faturamento_id", fat_id).execute().data
+            todas_txs = sb.table("fin_transacoes").select("status, valor, descricao").eq("faturamento_id", fat_id).execute().data
             todas_pagas = all(t["status"] == "PAGO" for t in todas_txs)
             alguma_paga = any(t["status"] == "PAGO" for t in todas_txs)
             
             novo_status = "QUITADO" if todas_pagas else ("PAGO_PARCIAL" if alguma_paga else "ABERTO")
-            sb.table("fin_faturamentos").update({"status": novo_status}).eq("id", fat_id).execute()
+            
+            # Recalcula o valor financeiro do faturamento mãe garantindo refletir descontos na hora da baixa permanentemente
+            pago = sum(t.get("valor", 0) for t in todas_txs if t.get("status") == "PAGO" and "Taxa de Operadora" not in (t.get("descricao") or ""))
+            pend = sum(t.get("valor", 0) for t in todas_txs if t.get("status") == "PENDENTE" and "Taxa de Operadora" not in (t.get("descricao") or ""))
+            novo_valor_final = pago + pend
+            
+            sb.table("fin_faturamentos").update({"status": novo_status, "valor_final": round(novo_valor_final, 2)}).eq("id", fat_id).execute()
 
         # ─── Despesa Automática de Taxa ────────────────────────────────────────
         # Se a parcela foi liquidada com taxa (maquininha, cartão, etc.),

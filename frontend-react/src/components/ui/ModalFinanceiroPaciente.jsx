@@ -205,6 +205,7 @@ const ModalFinanceiroPaciente = ({ paciente, onClose }) => {
                         <div className="p-6 overflow-y-auto">
                             <FaturamentoDetailsModal
                                 faturamento={selectedFaturamento}
+                                hideTaxa={true}
                                 onClose={() => {
                                     setIsDetailsOpen(false);
                                     loadData(); // refresh incase an installment was paid

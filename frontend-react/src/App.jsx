@@ -12,7 +12,9 @@ import Faturamentos from './pages/Faturamentos';
 import FinGlobalDashboard from './pages/FinGlobalDashboard';
 import Usuarios from './pages/Usuarios';
 import ConfiguracoesFinanceiras from './pages/ConfiguracoesFinanceiras';
+import ControleProtetico from './pages/ControleProtetico';
 import { useAuthSession } from './hooks/useAuthSession';
+import GlobalSearch from './components/ui/GlobalSearch';
 
 // Mock Auth Guard
 const PrivateRoute = ({ children }) => {
@@ -43,11 +45,21 @@ const Shell = ({ children }) => {
   return (
     <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 font-sans selection:bg-teal-500/30">
       <Sidebar />
-      <main className="flex-1 p-3 md:p-5 overflow-y-auto overflow-x-hidden h-screen relative">
+      <main className="flex-1 overflow-y-auto overflow-x-hidden h-screen relative flex flex-col">
         {/* Subtle global gradient background for the main content area */}
         <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-teal-400/5 dark:bg-teal-900/10 rounded-full blur-[100px] pointer-events-none -translate-y-1/2 translate-x-1/3"></div>
-        <div className="relative z-10 w-full">
-          {children}
+        
+        {/* Main Content Area com Header integrado */}
+        <div className="relative z-10 w-full flex-1 flex flex-col">
+             {/* Global Topbar */}
+             <header className="w-full flex justify-between items-center py-4 px-6 md:px-8 border-b border-transparent">
+                  <div className="w-full max-w-xl">
+                      <GlobalSearch />
+                  </div>
+             </header>
+             <div className="p-3 md:p-5 flex-1">
+                 {children}
+             </div>
         </div>
       </main>
     </div>
@@ -76,6 +88,7 @@ function App() {
         <Route path="/faturamentos" element={<PrivateRoute><Shell><Faturamentos /></Shell></PrivateRoute>} />
         <Route path="/financeiro" element={<PrivateRoute><Shell><FinGlobalDashboard /></Shell></PrivateRoute>} />
         <Route path="/configuracoes" element={<PrivateRoute><Shell><ConfiguracoesFinanceiras /></Shell></PrivateRoute>} />
+        <Route path="/protetico" element={<PrivateRoute><Shell><ControleProtetico /></Shell></PrivateRoute>} />
         <Route path="/usuarios" element={<AdminRoute><Shell><Usuarios /></Shell></AdminRoute>} />
 
         <Route path="*" element={<Navigate to="/" />} />

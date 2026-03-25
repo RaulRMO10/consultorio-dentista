@@ -57,6 +57,32 @@ def listar_pacientes(ativo: bool | None = None):
     return result.data
 
 
+@router.get("/search")
+def pesquisar_pacientes(q: str, limit: int = 10):
+    """
+    Busca global otimizada para a omni-search bar.
+    Filtra por nome, cpf ou celular.
+    """
+    if not q or len(q) < 2:
+        return []
+        
+    sb = get_supabase()
+    
+    # Prepara o termo de busca para a cláusula ILIKE
+    search_term = f"%{q}%"
+    
+    # Devido a limitações do cliente postgREST nativo do supabase-py com OR complexos,
+    # utilizamos o `or_` filter
+    query = sb.table('pacientes').select('id, nome, cpf, celular, telefone, data_nascimento') \
+              .or_(f"nome.ilike.{search_term},cpf.ilike.{search_term},celular.ilike.{search_term}") \
+              .eq('ativo', True) \
+              .order('nome') \
+              .limit(limit)
+              
+    result = query.execute()
+    return result.data
+
+
 @router.get("/{paciente_id}")
 def obter_paciente(paciente_id: str):
     """Obtém um paciente específico"""

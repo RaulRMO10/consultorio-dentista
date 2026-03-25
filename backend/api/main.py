@@ -4,7 +4,7 @@ API FastAPI - Consultório Dentista
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.config import get_settings
-from backend.api.routes import pacientes, dentistas, agendamentos, procedimentos, financeiro_consultorio, financeiro_pessoal, faturamentos, clin_tratamentos, financeiro_settings
+from backend.api.routes import pacientes, dentistas, agendamentos, procedimentos, financeiro_consultorio, financeiro_pessoal, faturamentos, clin_tratamentos, financeiro_settings, odontograma, anamneses, laboratorios, ordens_proteticas
 from backend.api.routes import auth
 
 settings = get_settings()
@@ -40,6 +40,10 @@ app.include_router(financeiro_consultorio.router,prefix="/api/financeiro/consult
 app.include_router(financeiro_pessoal.router,    prefix="/api/financeiro/pessoal",          tags=["Financeiro Pessoal"])
 app.include_router(financeiro_settings.router,   prefix="/api/financeiro/settings",         tags=["Configurações Financeiras"])
 app.include_router(clin_tratamentos.router,      prefix="/api/tratamentos",                 tags=["Tratamentos Clínicos"])
+app.include_router(odontograma.router,           prefix="/api/odontograma",                 tags=["Odontograma"])
+app.include_router(anamneses.router,             prefix="/api/anamneses",                   tags=["Anamneses"])
+app.include_router(laboratorios.router,          prefix="/api/protetico/laboratorios",       tags=["Laboratórios"])
+app.include_router(ordens_proteticas.router,     prefix="/api/protetico/ordens",             tags=["Controle Protético"])
 
 
 @app.get("/")

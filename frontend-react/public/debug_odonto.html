@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Debug Odontograma</title>
+<style>
+  body { margin: 0; background: #1a1a2e; display: flex; flex-direction: column; align-items: center; font-family: monospace; }
+  #info { color: #0f0; padding: 8px; font-size: 14px; position: sticky; top: 0; background: #1a1a2e; z-index: 10; width: 100%; text-align: center; }
+  #clicks { color: #ff0; padding: 4px 16px; font-size: 12px; max-height: 120px; overflow-y: auto; width: 740px; }
+  #container { position: relative; width: 740px; height: 740px; }
+  #img { width: 740px; height: 740px; display: block; }
+  #overlay { position: absolute; top: 0; left: 0; width: 740px; height: 740px; cursor: crosshair; }
+</style>
+</head>
+<body>
+<div id="info">SVG (x, y): <span id="coords">—</span> | Cliques: <span id="count">0</span> | <button onclick="exportClicks()" style="background:#0f0;border:none;padding:2px 8px;cursor:pointer">EXPORTAR JSON</button> | <button onclick="clearClicks()" style="background:#f00;color:#fff;border:none;padding:2px 8px;cursor:pointer">LIMPAR</button></div>
+<div id="clicks"></div>
+<div id="container">
+  <img id="img" src="/odontograma.avif" alt="odontograma" />
+  <svg id="overlay" viewBox="0 0 740 740">
+    <!-- grid 50px -->
+    <defs>
+      <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
+        <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#ffffff22" stroke-width="0.5"/>
+      </pattern>
+    </defs>
+    <rect width="740" height="740" fill="url(#grid)" />
+    <!-- linhas de referência a cada 100px -->
+    <line x1="100" y1="0" x2="100" y2="740" stroke="#ffffff44" stroke-width="0.5" stroke-dasharray="4,4"/>
+    <line x1="200" y1="0" x2="200" y2="740" stroke="#ffffff44" stroke-width="0.5" stroke-dasharray="4,4"/>
+    <line x1="300" y1="0" x2="300" y2="740" stroke="#ffffff44" stroke-width="0.5" stroke-dasharray="4,4"/>
+    <line x1="370" y1="0" x2="370" y2="740" stroke="#ff000088" stroke-width="1" stroke-dasharray="4,4"/>
+    <line x1="400" y1="0" x2="400" y2="740" stroke="#ffffff44" stroke-width="0.5" stroke-dasharray="4,4"/>
+    <line x1="500" y1="0" x2="500" y2="740" stroke="#ffffff44" stroke-width="0.5" stroke-dasharray="4,4"/>
+    <line x1="600" y1="0" x2="600" y2="740" stroke="#ffffff44" stroke-width="0.5" stroke-dasharray="4,4"/>
+    <line x1="700" y1="0" x2="700" y2="740" stroke="#ffffff44" stroke-width="0.5" stroke-dasharray="4,4"/>
+    <line x1="0" y1="100" x2="740" y2="100" stroke="#ffffff44" stroke-width="0.5" stroke-dasharray="4,4"/>
+    <line x1="0" y1="200" x2="740" y2="200" stroke="#ffffff44" stroke-width="0.5" stroke-dasharray="4,4"/>
+    <line x1="0" y1="270" x2="740" y2="270" stroke="#00ffff88" stroke-width="1" stroke-dasharray="4,4"/>
+    <line x1="0" y1="300" x2="740" y2="300" stroke="#ffffff44" stroke-width="0.5" stroke-dasharray="4,4"/>
+    <line x1="0" y1="370" x2="740" y2="370" stroke="#ff000088" stroke-width="1" stroke-dasharray="4,4"/>
+    <line x1="0" y1="400" x2="740" y2="400" stroke="#ffffff44" stroke-width="0.5" stroke-dasharray="4,4"/>
+    <line x1="0" y1="480" x2="740" y2="480" stroke="#00ffff88" stroke-width="1" stroke-dasharray="4,4"/>
+    <line x1="0" y1="500" x2="740" y2="500" stroke="#ffffff44" stroke-width="0.5" stroke-dasharray="4,4"/>
+    <line x1="0" y1="600" x2="740" y2="600" stroke="#ffffff44" stroke-width="0.5" stroke-dasharray="4,4"/>
+    <line x1="0" y1="700" x2="740" y2="700" stroke="#ffffff44" stroke-width="0.5" stroke-dasharray="4,4"/>
+    <!-- label dos eixos -->
+    <text x="5" y="268" fill="#0ff" font-size="10">y=270</text>
+    <text x="5" y="478" fill="#0ff" font-size="10">y=480</text>
+    <text x="5" y="368" fill="#f00" font-size="10">y=370</text>
+    <!-- ponto de cliques -->
+    <g id="clickDots"></g>
+  </svg>
+</div>
+
+<div id="jsonOutput" style="color:#ff0;padding:16px;width:740px;word-break:break-all;font-size:12px;"></div>
+
+<script>
+const svg = document.getElementById('overlay');
+const coordsEl = document.getElementById('coords');
+const countEl = document.getElementById('count');
+const clicksEl = document.getElementById('clicks');
+const dotsGroup = document.getElementById('clickDots');
+const jsonOutput = document.getElementById('jsonOutput');
+
+const clicks = [];
+const labels = ['18','17','16','15','14','13','12','11','21','22','23','24','25','26','27','28',
+                 '48','47','46','45','44','43','42','41','31','32','33','34','35','36','37','38'];
+
+svg.addEventListener('mousemove', function(e) {
+  const rect = svg.getBoundingClientRect();
+  const x = Math.round((e.clientX - rect.left) * 740 / rect.width);
+  const y = Math.round((e.clientY - rect.top) * 740 / rect.height);
+  coordsEl.textContent = `${x}, ${y}`;
+});
+
+svg.addEventListener('click', function(e) {
+  const rect = svg.getBoundingClientRect();
+  const x = Math.round((e.clientX - rect.left) * 740 / rect.width);
+  const y = Math.round((e.clientY - rect.top) * 740 / rect.height);
+  const idx = clicks.length;
+  clicks.push({x, y});
+  
+  const label = labels[idx] || `?${idx}`;
+  
+  // Add dot + label
+  const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  circle.setAttribute('cx', x); circle.setAttribute('cy', y); circle.setAttribute('r', 8);
+  circle.setAttribute('fill', '#ff000099'); circle.setAttribute('stroke', '#ff0'); circle.setAttribute('stroke-width', '1.5');
+  dotsGroup.appendChild(circle);
+  
+  const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  text.setAttribute('x', x); text.setAttribute('y', y - 10);
+  text.setAttribute('text-anchor', 'middle'); text.setAttribute('fill', '#ff0'); text.setAttribute('font-size', '9');
+  text.textContent = label;
+  dotsGroup.appendChild(text);
+  
+  countEl.textContent = idx + 1;
+  clicksEl.innerHTML += `<div>${idx+1}. Dente ${label}: (${x}, ${y})</div>`;
+  clicksEl.scrollTop = clicksEl.scrollHeight;
+});
+
+function exportClicks() {
+  const result = {};
+  labels.slice(0, clicks.length).forEach((label, i) => { result[label] = clicks[i]; });
+  jsonOutput.textContent = JSON.stringify(result, null, 2);
+}
+
+function clearClicks() {
+  clicks.length = 0;
+  dotsGroup.innerHTML = '';
+  clicksEl.innerHTML = '';
+  countEl.textContent = '0';
+  jsonOutput.textContent = '';
+}
+</script>
+</body>
+</html>
