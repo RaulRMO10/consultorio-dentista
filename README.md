@@ -1,220 +1,223 @@
-﻿# 🦷 OdontoSystem — Gestão de Consultório Odontológico
+# 🦷 OdontoSystem — Gestão de Consultório Odontológico
 
-Sistema completo de gestão para consultórios odontológicos, com arquitetura dividida em moderno **Backend FastAPI**, **Frontend em React + Vite + Tailwind CSS v4** e hospedagem no **Supabase (PostgreSQL)**.
+Sistema **full-stack** completo para gestão de consultórios odontológicos: agenda, prontuário clínico, odontograma, controle protético e gestão financeira — com autenticação por perfis e API documentada.
+
+![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
+![Vite](https://img.shields.io/badge/Vite-646CFF?logo=vite&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-06B6D4?logo=tailwindcss&logoColor=white)
+![Supabase](https://img.shields.io/badge/Supabase-3FCF8E?logo=supabase&logoColor=white)
+
+> 🖼️ _Screenshots/GIF da aplicação aqui — dashboard, agenda e odontograma._
+> _(Adicione imagens em `docs/` e referencie-as com `![alt](docs/dashboard.png)`)_
 
 ---
 
-## 🚀 Tecnologias
+## ✨ Funcionalidades
+
+### Clínico
+- **Pacientes** — cadastro completo, ficha e histórico de atendimentos
+- **Odontograma** — registro visual do estado de cada dente
+- **Anamnese** — questionário de saúde do paciente
+- **Tratamentos clínicos** — planos e acompanhamento
+- **Agendamentos** — agenda com fluxo de status (agendado → concluído)
+- **Procedimentos** — catálogo com valores e duração
+
+### Controle Protético
+- **Laboratórios** — cadastro e gestão de parceiros
+- **Ordens protéticas** — ciclo de vida das próteses (envio, retorno, prazos)
+
+### Financeiro
+- **Faturamentos** — registro e detalhamento de receitas
+- **Financeiro do consultório** — visão mensal e anual
+- **Financeiro do paciente** — situação financeira individual
+- **Financeiro pessoal** — controle separado por usuário
+- **Configurações financeiras** — parâmetros e categorias
+
+### Plataforma
+- **Login seguro (JWT)** com perfis: Admin, Dentista, Recepcionista, Financeiro
+- **Busca global** — localização rápida em todo o sistema
+- **Gestão de usuários** — controle de acessos (somente Admin)
+
+---
+
+## 🛠️ Stack Tecnológica
 
 | Camada | Tecnologia |
 |---|---|
 | Backend | FastAPI + Uvicorn (Python 3.11+) |
-| Frontend | React + Vite + Tailwind CSS v4 |
-| Banco de Dados | PostgreSQL via Supabase (PostgREST) |
-| Autenticação | JWT (`python-jose`) + bcrypt |
+| Frontend | React 18 + Vite + Tailwind CSS v4 |
+| Banco de dados | PostgreSQL via Supabase (PostgREST) |
+| Autenticação | JWT (`python-jose`) + bcrypt (custo 12) |
 | Validação | Pydantic V2 |
+| HTTP client | Axios com interceptors de JWT |
 
 ---
 
-## âœ… Funcionalidades
-
-- **Login seguro** com JWT â€” perfis: Admin, Dentista, Recepcionista, Financeiro  
-- **Pacientes** â€” cadastro completo, ficha, histÃ³rico de agendamentos  
-- **Dentistas** â€” cadastro, especialidades, estatÃ­sticas de atendimento  
-- **Agendamentos** â€” agenda visual, fluxo de status (agendado â†’ concluÃ­do)  
-- **Procedimentos** â€” catÃ¡logo com valores e duraÃ§Ã£o  
-- **Financeiro ConsultÃ³rio** â€” lanÃ§amentos, visÃ£o mensal e anual  
-- **Financeiro Pessoal** â€” controle separado por usuÃ¡rio  
-- **UsuÃ¡rios** â€” gerenciamento de acessos (somente Admin)  
-
----
-
-## 📁 Estrutura do Projeto
+## 🏗️ Arquitetura
 
 ```
-odontosystem/
+┌──────────────────────────┐      ┌──────────────────────────┐
+│  Frontend (React + Vite) │ ───► │  Backend (FastAPI)       │
+│  React Router · Axios    │ JWT  │  Routers por domínio     │
+│  Tailwind CSS v4         │ ◄─── │  Pydantic · python-jose  │
+└──────────────────────────┘      └────────────┬─────────────┘
+                                                │ PostgREST
+                                                ▼
+                                   ┌──────────────────────────┐
+                                   │  Supabase (PostgreSQL)   │
+                                   └──────────────────────────┘
+```
+
+### Principais endpoints (API REST)
+
+| Prefixo | Módulo |
+|---|---|
+| `POST /auth/login` · `GET /auth/me` | Autenticação |
+| `/api/pacientes` | Pacientes |
+| `/api/dentistas` | Dentistas |
+| `/api/agendamentos` | Agendamentos |
+| `/api/procedimentos` | Procedimentos |
+| `/api/tratamentos` | Tratamentos clínicos |
+| `/api/odontograma` | Odontograma |
+| `/api/anamneses` | Anamneses |
+| `/api/protetico/laboratorios` | Laboratórios |
+| `/api/protetico/ordens` | Controle protético |
+| `/api/faturamentos` | Faturamentos |
+| `/api/financeiro/consultorio` | Financeiro consultório |
+| `/api/financeiro/pessoal` | Financeiro pessoal |
+| `/api/financeiro/settings` | Configurações financeiras |
+
+> Documentação interativa (Swagger) em `http://localhost:8000/docs`.
+
+---
+
+## 📁 Estrutura do projeto
+
+```
+consultorio-dentista/
 ├── backend/
 │   ├── api/
-│   │   ├── main.py              # App FastAPI + routers
-│   │   └── routes/
-│   │       ├── auth.py          # Login / JWT / usuários
+│   │   ├── main.py                 # App FastAPI + registro de routers
+│   │   └── routes/                 # Um router por domínio
+│   │       ├── auth.py             # Login / JWT / usuários
 │   │       ├── pacientes.py
 │   │       ├── dentistas.py
 │   │       ├── agendamentos.py
 │   │       ├── procedimentos.py
+│   │       ├── clin_tratamentos.py
+│   │       ├── odontograma.py
+│   │       ├── anamneses.py
+│   │       ├── laboratorios.py
+│   │       ├── ordens_proteticas.py
+│   │       ├── faturamentos.py
 │   │       ├── financeiro_consultorio.py
-│   │       └── financeiro_pessoal.py
+│   │       ├── financeiro_pessoal.py
+│   │       └── financeiro_settings.py
 │   └── config/
-│       ├── settings.py          # Pydantic Settings (lê .env)
-│       └── supabase_client.py   # Cliente PostgREST
-├── frontend-react/              # NOVO FRONTEND EM REACT
+│       ├── settings.py             # Pydantic Settings (lê .env)
+│       └── supabase_client.py      # Cliente PostgREST
+├── frontend-react/
 │   ├── src/
-│   │   ├── components/ui        # Componentes genéricos (Buttons, Cards)
-│   │   ├── pages/               # Views (Dashboard, Pacientes, Finanças, etc.)
-│   │   ├── services/api.js      # Instância Axios com Interceptors JWT
-│   │   ├── App.jsx              # React Router
-│   │   └── index.css            # Tailwind CSS v4
-│   ├── package.json             # Dependências Node.js
-│   └── vite.config.js           # Configurações do Vite
+│   │   ├── components/             # Componentes (Odontograma, Sidebar, modais, busca)
+│   │   ├── pages/                  # Telas (Dashboard, Pacientes, Financeiro, etc.)
+│   │   ├── services/api.js         # Axios + interceptors JWT
+│   │   └── App.jsx                 # React Router
+│   ├── package.json
+│   └── vite.config.js
 ├── database/
-│   ├── schema.sql               # Tabelas principais
-│   ├── schema_financeiro.sql    # Tabelas financeiras
-│   └── schema_auth.sql          # Tabela de usuários + admin inicial
-├── .env.example                 # Modelo de variáveis de ambiente
+│   ├── schema.sql                  # Tabelas principais
+│   ├── schema_financeiro.sql       # Tabelas financeiras
+│   └── schema_auth.sql             # Tabela de usuários + admin inicial
+├── .env.example                    # Modelo de variáveis de ambiente
 ├── requirements.txt
-├── criar_admin.py               # CLI para criar usuário admin
-├── start_backend.py             # Script para rodar API REST
-├── start_frontend.py            # Script adaptado para npm run dev
-└── start.bat                    # Inicia tudo (Windows)
-```
-â”œâ”€â”€ database/
-â”‚   â”œâ”€â”€ schema.sql               # Tabelas principais
-â”‚   â”œâ”€â”€ schema_financeiro.sql    # Tabelas financeiras
-â”‚   â””â”€â”€ schema_auth.sql          # Tabela de usuÃ¡rios + admin inicial
-â”œâ”€â”€ .env.example                 # Modelo de variÃ¡veis de ambiente
-â”œâ”€â”€ requirements.txt
-â”œâ”€â”€ criar_admin.py               # CLI para criar usuÃ¡rio admin
-â”œâ”€â”€ start_backend.py
-â”œâ”€â”€ start_frontend.py
-â””â”€â”€ start.bat                    # Inicia tudo (Windows)
+├── criar_admin.py                  # CLI para criar usuário admin
+├── start_backend.py · start_frontend.py · start.bat
+└── README.md
 ```
 
 ---
 
-## ðŸ”§ InstalaÃ§Ã£o
+## 🚀 Como rodar localmente
 
-### 1. PrÃ©-requisitos
-- Python **3.11** ou superior
-- Projeto no [Supabase](https://supabase.com) (gratuito)
+### Pré-requisitos
+- Python **3.11+** e Node.js **18+**
+- Um projeto no [Supabase](https://supabase.com) (plano gratuito)
 
-### 2. Clonar e criar ambiente virtual
-
+### 1. Clonar e instalar o backend
 ```bash
-git clone <url-do-repositorio>
-cd odontosystem
+git clone https://github.com/RaulRMO10/consultorio-dentista.git
+cd consultorio-dentista
 
 python -m venv .venv
 .venv\Scripts\activate          # Windows
-# source .venv/bin/activate     # Linux/Mac
+# source .venv/bin/activate     # Linux/macOS
 
 pip install -r requirements.txt
 ```
 
-### 3. Configurar variÃ¡veis de ambiente
-
+### 2. Configurar variáveis de ambiente
 ```bash
-copy .env.example .env          # Windows
-# cp .env.example .env          # Linux/Mac
+copy .env.example .env           # Windows  (cp no Linux/macOS)
 ```
-
-Edite `.env` com suas credenciais do Supabase:
-
+Edite o `.env` com suas credenciais do Supabase:
 ```env
 SUPABASE_URL=https://<seu_project_id>.supabase.co
-SUPABASE_KEY=<sua_anon_key>
-DB_PASSWORD=<sua_db_password>
-JWT_SECRET_KEY=<chave_secreta_forte>   # python -c "import secrets; print(secrets.token_hex(32))"
+SUPABASE_KEY=<sua_service_role_key>
+JWT_SECRET_KEY=<chave_forte>      # python -c "import secrets; print(secrets.token_hex(32))"
 ```
+> 🔑 No Supabase: `Settings → API` (URL e keys) e `Settings → Database` (senha).
 
-> ðŸ”‘ **Onde encontrar as chaves do Supabase:**  
-> `Settings â†’ API` â†’ Project URL + anon/public key  
-> `Settings â†’ Database` â†’ senha do banco
-
-### 4. Criar as tabelas no Supabase
-
-Acesse o **SQL Editor** do seu projeto no Supabase e execute os arquivos na ordem:
-
+### 3. Criar as tabelas
+No **SQL Editor** do Supabase, execute na ordem:
 1. `database/schema.sql`
 2. `database/schema_financeiro.sql`
-3. `database/schema_auth.sql` â† cria tabela `usuarios` + usuÃ¡rio admin inicial
+3. `database/schema_auth.sql` (cria a tabela `usuarios` + admin inicial)
 
-> O arquivo `schema_auth.sql` jÃ¡ insere o **admin padrÃ£o** com:  
-> **E-mail:** `admin@odontosystem.com` | **Senha:** `Admin@2025`  
-> Altere a senha apÃ³s o primeiro acesso.
+> O `schema_auth.sql` cria um **admin padrão** — **altere a senha no primeiro acesso.**
 
----
-
-## â–¶ï¸ Rodando o sistema
-
-### Windows â€” tudo de uma vez
-
-```bat
-start.bat
-```
-
-### Ou manualmente (dois terminais)
-
+### 4. Iniciar
 ```bash
-# Terminal 1 — Backend (FastAPI Python)
-python start_backend.py
-# API em http://localhost:8000
-# Docs em http://localhost:8000/docs
+# Windows (tudo de uma vez)
+start.bat
 
-# Terminal 2 — Frontend (React Vite)
-python start_frontend.py
-# (que chama internamente 'npm run dev' na pasta frontend-react)
-# Interface em http://localhost:5173
+# ou manualmente, em dois terminais:
+python start_backend.py     # API   → http://localhost:8000  (docs em /docs)
+python start_frontend.py    # React → http://localhost:5173
 ```
 
----
-
-## ðŸ” AutenticaÃ§Ã£o
-
-- Todas as pÃ¡ginas exigem login
-- Perfis disponÃ­veis: `admin`, `dentista`, `recepcionista`, `financeiro`
-- Tokens JWT com expiraÃ§Ã£o de 8 horas
-- Gerenciar usuÃ¡rios pela pÃ¡gina **ðŸ” UsuÃ¡rios** (somente Admin)
-
-Para criar usuÃ¡rios extras via CLI:
-
+Para criar usuários via CLI:
 ```bash
 python criar_admin.py --email "dentista@clinica.com" --nome "Dr. Silva" --role dentista
 ```
 
 ---
 
-## ðŸ“š API
+## 🔒 Segurança
 
-DocumentaÃ§Ã£o Swagger interativa em: `http://localhost:8000/docs`
+- Credenciais apenas em variáveis de ambiente (`.env` no `.gitignore`)
+- Senhas com **bcrypt** (custo 12)
+- **JWT** com expiração configurável (padrão 8h)
+- Sem valores sensíveis hardcoded no código
+- Controle de acesso por **perfil de usuário**
 
-| Prefixo | MÃ³dulo |
+---
+
+## 📦 Deploy sugerido
+
+| Serviço | Uso |
 |---|---|
-| `POST /auth/login` | AutenticaÃ§Ã£o |
-| `GET /auth/me` | UsuÃ¡rio atual |
-| `/api/pacientes` | Pacientes |
-| `/api/dentistas` | Dentistas |
-| `/api/agendamentos` | Agendamentos |
-| `/api/procedimentos` | Procedimentos |
-| `/api/financeiro/consultorio` | Financeiro consultÃ³rio |
-| `/api/financeiro/pessoal` | Financeiro pessoal |
+| [Render](https://render.com) / [Railway](https://railway.app) | Backend FastAPI |
+| [Vercel](https://vercel.com) / [Netlify](https://netlify.com) | Frontend React |
+| [Supabase](https://supabase.com) | Banco PostgreSQL |
+
+Em produção, no `.env`: `DEBUG=False` e um `JWT_SECRET_KEY` forte.
 
 ---
 
-## ðŸ”’ SeguranÃ§a
+## 👤 Autor
 
-- Credenciais em variÃ¡veis de ambiente (`.env` estÃ¡ no `.gitignore`)
-- Senhas armazenadas com **bcrypt** (custo 12)
-- AutenticaÃ§Ã£o **JWT** com expiraÃ§Ã£o configurÃ¡vel
-- Sem valores sensÃ­veis hardcoded no cÃ³digo
+**Raul Martins** · [GitHub @RaulRMO10](https://github.com/RaulRMO10) · [LinkedIn](https://www.linkedin.com/in/raulrmo/)
 
----
-
-## ðŸš€ Deploy
-
-Para produÃ§Ã£o, configure no `.env`:
-
-```env
-DEBUG=False
-JWT_SECRET_KEY=<chave_muito_forte_aqui>
-```
-
-SugestÃµes de hospedagem gratuita:
-
-| [Railway](https://railway.app) | Backend + Banco de dados |
-| [Render](https://render.com) | Backend |
-| [Vercel / Netlify](https://vercel.com) | Frontend React |
-| [Supabase](https://supabase.com) | Banco de dados PostgreSQL |
-
----
-
-**Versão:** 2.0.0 · **Stack Atual:** FastAPI + React + Vite + Tailwind CSS + Supabase
+**Versão:** 2.0.0 — FastAPI + React + Vite + Tailwind CSS + Supabase
